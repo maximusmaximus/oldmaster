@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: #0c0b0a;
+  --color-surface: #141210;
+  --color-surface-2: #1c1916;
+  --color-fg: #f3eee6;
+  --color-muted: #9a9388;
+  --color-subtle: #6e685f;
+  --color-accent: #d9d2c5;
+  --color-accent-fg: #141210;
+  --color-headline: #e2007a;
+  --color-headline-fg: #ffffff;
+  --color-border: #2a2622;
+  --color-ring: #e2007a;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --scale-96: 0.96;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.55;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: var(--color-headline);
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,21 @@
+# secrets & env
+.grok/secrets/
+.env
+.env.*
+!.env.example
+
+# deps & build
+node_modules/
+.output/
+.vinxi/
+.tanstack/
+.vercel/
+dist/
+*.log
+
+# sandbox / local
+.project_id
+startup.sh
+AGENTS.md
+screenshots/
+artifacts/
