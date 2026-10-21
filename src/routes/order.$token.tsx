@@ -16,6 +16,7 @@ type OrderView = {
   canCancel: boolean;
   tracking: Array<{ number: string | null; url: string | null }>;
   canRequestReprint: boolean;
+  availability?: { editionSize: number; editionRemaining: number };
 };
 
 const STATE_TEXT: Record<string, string> = {
@@ -67,6 +68,11 @@ function OrderPage() {
       <h1 className="mt-2 font-sans text-3xl font-bold tracking-tight text-headline">Emoji Old Masters</h1>
       <p className="mt-2 text-sm text-muted">Bookmark this page: it's where you'll see shipping status and tracking.</p>
       <p className="mt-6 text-lg text-fg">{STATE_TEXT[order.state] ?? order.state}</p>
+      {order.availability ? (
+        <p className="mt-2 text-sm text-muted">
+          Limited edition: {order.availability.editionRemaining} of {order.availability.editionSize} copies left.
+        </p>
+      ) : null}
       <dl className="mt-4 space-y-1 text-sm text-muted">
         {order.shipTo ? <div>Ships to: {order.shipTo}</div> : null}
         {order.tier ? <div>Shipping: {order.tier}</div> : null}

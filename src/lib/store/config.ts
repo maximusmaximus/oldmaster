@@ -48,3 +48,9 @@ export const CONTACT_EMAIL = "maxinfeld@gmail.com";
 export const CANCEL_CUTOFF_LABEL = "4:00 PM Pacific Time";
 export const REPRINT_WINDOW_DAYS = 14;
 export const TERMS_EFFECTIVE_DATE = "October 21, 2026";
+
+/** Limited edition (Max, Oct 21, 2026). */
+export const EDITION_SIZE = 500;
+/** Open Checkout Sessions reserve a copy for this long (matches the 30-min session expiry). */
+export const RESERVATION_MS = 30 * 60 * 1000;
+export const TEXT_DAILY_SOLD_OUT = "Today's 5 copies are sold, back tomorrow at midnight PT.";

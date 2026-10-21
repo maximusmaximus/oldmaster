@@ -4,6 +4,8 @@ import {
   BOOK_PRICE_CENTS,
   CANCEL_CUTOFF_LABEL,
   CONTACT_EMAIL,
+  DEFAULT_MAX_ORDERS_PER_DAY,
+  EDITION_SIZE,
   QUOTE_TTL_MS,
   REPRINT_WINDOW_DAYS,
   SELLER_NAME,
@@ -56,6 +58,7 @@ function Terms() {
         <p>
           {STORE_NAME} is a hardcover art book, 440 pages, 11.75 × 11.75 inches, printed in full color on gloss paper.
           Each copy is printed on demand after you order, by a third-party print partner, and shipped directly from them to you.
+          It is a limited edition of {EDITION_SIZE} copies; once they are sold, it won't be reprinted for sale here.
           Colors, trim and binding can vary slightly from copy to copy and from what you see on screen; that is not a defect.
         </p>
       </Section>
@@ -68,6 +71,11 @@ function Terms() {
             not every speed is offered to every address). We show the exact shipping price before you pay. A shipping quote is valid for {QUOTE_MIN} minutes.
           </li>
           <li>We collect California sales tax on orders shipped to California. Tax is calculated by Stripe and shown at checkout.</li>
+          <li>
+            We sell at most {DEFAULT_MAX_ORDERS_PER_DAY} copies per day; the daily count resets at midnight Pacific Time. Starting checkout holds a copy
+            for you for 30 minutes. If a payment goes through after the edition or the day's copies are already taken, we cancel and fully refund it
+            (or, for the daily limit, we may ship it the next day instead).
+          </li>
           <li>All prices are in US dollars. Your bank may charge currency-conversion or foreign-transaction fees.</li>
         </ul>
       </Section>

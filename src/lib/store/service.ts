@@ -10,10 +10,12 @@ import {
   BOOK_PRICE_CENTS,
   DEFAULT_MAX_EXPOSURE_USD_PER_DAY,
   DEFAULT_MAX_ORDERS_PER_DAY,
+  EDITION_SIZE,
   EXPECTED_PRINT_COST_USD,
+  RESERVATION_MS,
   type ShipTier,
 } from "./config.ts";
-import { capDayStartUtc, cancelDeadlineFor, isAfterTodayCutoff, nextPostChargeRunUtc } from "./cutoff.ts";
+import { cancelDeadlineFor, isAfterTodayCutoff, nextPostChargeRunUtc, nextPtMidnightUtc, ptDayStartUtc } from "./cutoff.ts";
 import { formatOrderId } from "./order-id.ts";
 import { checkRegion, REGION_MESSAGES } from "./regions.ts";
 import {
@@ -139,17 +141,64 @@ export function createStore(deps: StoreDeps) {
     Object.assign(o, extra);
   }
 
-  async function capStatus(nextShippingUsd: number) {
-    const since = capDayStartUtc(now()).toISOString();
+  /**
+   * Counting rules (Max, Oct 21, 2026):
+   * - a copy is "taken" by a paid order that wasn't cancelled/refunded, or by an
+   *   open Checkout Session created in the last 30 minutes (a reservation);
+   * - the edition counts all taken copies; the daily limit counts copies taken
+   *   since midnight PT.
+   * SQL fragments are shared by the status read and the atomic checkout insert.
+   */
+  const TAKEN_SQL = `((paid_at is not null and state <> 'CANCELLED_REFUNDED')
+      or (state = 'CHECKOUT_OPEN' and stripe_session_id is not null and created_at >= $RES))`;
+  const TODAY_SQL = `((paid_at is not null and state <> 'CANCELLED_REFUNDED' and paid_at >= $DAY)
+      or (state = 'CHECKOUT_OPEN' and stripe_session_id is not null and created_at >= $RES))`;
+
+  function windows() {
+    const t = now();
+    return { day: ptDayStartUtc(t).toISOString(), res: new Date(t.getTime() - RESERVATION_MS).toISOString(), resetsAt: nextPtMidnightUtc(t).toISOString() };
+  }
+
+  async function capStatus(nextShippingUsd: number, excludeOrderId: string | null = null) {
+    const w = windows();
+    const where = TODAY_SQL.replaceAll("$DAY", "$1").replaceAll("$RES", "$2");
     const rows = await sql.query<{ n: number; ship: number | null }>(
-      "select count(*)::int as n, coalesce(sum(amount_shipping_cents), 0)::int as ship from store_orders where customer_order_id is not null and paid_at >= $1",
-      [since],
+      `select count(*)::int as n, coalesce(sum(coalesce(amount_shipping_cents, quoted_shipping_cents, 0)), 0)::int as ship
+       from store_orders where ${where} and ($3::text is null or id <> $3)`,
+      [w.day, w.res, excludeOrderId],
     );
     const n = Number(rows[0]?.n ?? 0);
     const exposure = Math.round((n * EXPECTED_PRINT_COST_USD + Number(rows[0]?.ship ?? 0) / 100) * 1.1 * 100) / 100;
     const maxOrders = Number(await getSetting("MAX_RPI_ORDERS_PER_DAY")) || DEFAULT_MAX_ORDERS_PER_DAY;
     const maxExposure = Number(await getSetting("MAX_RPI_EXPOSURE_USD_PER_DAY")) || DEFAULT_MAX_EXPOSURE_USD_PER_DAY;
-    return { ordersToday: n, exposureTodayUsd: exposure, maxOrders, maxExposure, result: capCheck({ ordersToday: n, exposureTodayUsd: exposure, nextShippingUsd, maxOrders, maxExposureUsd: maxExposure }) };
+    return { ordersToday: n, exposureTodayUsd: exposure, maxOrders, maxExposure, resetsAt: w.resetsAt, result: capCheck({ ordersToday: n, exposureTodayUsd: exposure, nextShippingUsd, maxOrders, maxExposureUsd: maxExposure }) };
+  }
+
+  async function copiesTaken(excludeOrderId: string | null = null): Promise<number> {
+    const w = windows();
+    const where = TAKEN_SQL.replaceAll("$RES", "$1");
+    const r = await sql.query<{ n: number }>(
+      `select count(*)::int as n from store_orders where ${where} and ($2::text is null or id <> $2)`,
+      [w.res, excludeOrderId],
+    );
+    return Number(r[0]?.n ?? 0);
+  }
+
+  /** Buyer-facing availability for /api/store/status, /book and the order page. */
+  async function availability() {
+    const taken = await copiesTaken();
+    const caps = await capStatus(0);
+    const editionRemaining = Math.max(0, EDITION_SIZE - taken);
+    const dailyRemaining = Math.max(0, caps.maxOrders - caps.ordersToday);
+    return {
+      editionSize: EDITION_SIZE,
+      editionRemaining,
+      soldOut: editionRemaining === 0,
+      dailyLimit: caps.maxOrders,
+      dailyRemaining: Math.min(dailyRemaining, editionRemaining),
+      dailySoldOut: dailyRemaining === 0,
+      dailyResetsAt: caps.resetsAt,
+    };
   }
 
   // ---------- quote ----------
@@ -157,6 +206,9 @@ export function createStore(deps: StoreDeps) {
     const region = checkRegion(address.country, address.region);
     if (!region.ok) return { ok: false, status: 422, error: REGION_MESSAGES[region.reason] };
     if (!(await salesOpen())) return { ok: false, status: 503, error: "Sales open soon." };
+    const avail = await availability();
+    if (avail.soldOut) return { ok: false, status: 409, error: "Sold out." };
+    if (avail.dailySoldOut) return { ok: false, status: 409, error: "Today's 5 copies are sold, back tomorrow at midnight PT." };
     if (!deps.rpi) return { ok: false, status: 503, error: "Shipping quotes are unavailable right now." };
     const r = await deps.rpi.shippingEstimate(address);
     if (r.kind === "http" && (r.status === 401 || r.status === 403)) {
@@ -181,13 +233,27 @@ export function createStore(deps: StoreDeps) {
     const option = (JSON.parse(q.options_json) as ShippingOption[]).find((o) => o.tier === tier);
     if (!option) return { ok: false, status: 422, error: "tier_unavailable" };
     const caps = await capStatus(option.priceUsd);
-    if (!caps.result.ok) return { ok: false, status: 503, error: "sold_out_today" };
+    if (!caps.result.ok) return { ok: false, status: 409, error: caps.result.reason === "count" ? "sold_out_today" : "sold_out_today" };
     const address = JSON.parse(q.address_json) as Address;
     const orderToken = token();
-    await sql.query(
-      "insert into store_orders (id, state, quote_id, ship_tier, quoted_shipping_cents, address_json) values ($1, 'CHECKOUT_OPEN', $2, $3, $4, $5)",
-      [orderToken, quoteId, tier, Math.round(option.priceUsd * 100), q.address_json],
+    // Atomic reservation: one statement inserts the order only while both the
+    // edition and today's count (paid + open reservations) have room. The row is
+    // a reservation from now on (stripe_session_id is set right after).
+    const w = windows();
+    const taken = TAKEN_SQL.replaceAll("$RES", "$8");
+    const today = TODAY_SQL.replaceAll("$DAY", "$7").replaceAll("$RES", "$8");
+    const inserted = await sql.query<{ id: string }>(
+      `insert into store_orders (id, state, quote_id, ship_tier, quoted_shipping_cents, address_json, created_at, stripe_session_id)
+       select $1, 'CHECKOUT_OPEN', $2, $3, $4, $5, $6, 'pending:' || $1
+       where (select count(*) from store_orders where ${taken}) < $9
+         and (select count(*) from store_orders where ${today}) < $10
+       returning id`,
+      [orderToken, quoteId, tier, Math.round(option.priceUsd * 100), q.address_json, now().toISOString(), w.day, w.res, EDITION_SIZE, caps.maxOrders],
     );
+    if (inserted.length === 0) {
+      const a = await availability();
+      return { ok: false, status: 409, error: a.soldOut ? "sold_out" : "sold_out_today" };
+    }
     try {
       const customer = await deps.stripe.createCustomer(address, `cus-${orderToken}`);
       const session = await deps.stripe.createCheckoutSession(
@@ -197,7 +263,7 @@ export function createStore(deps: StoreDeps) {
       await sql.query("update store_orders set stripe_session_id = $2, stripe_customer_id = $3, updated_at = now() where id = $1", [orderToken, session.id, customer.id]);
       return { ok: true, url: session.url };
     } catch {
-      await sql.query("update store_orders set state = 'EXPIRED', last_error = 'stripe session failed' where id = $1", [orderToken]);
+      await sql.query("update store_orders set state = 'EXPIRED', stripe_session_id = null, last_error = 'stripe session failed' where id = $1", [orderToken]);
       return { ok: false, status: 502, error: "checkout_unavailable" };
     }
   }
@@ -367,13 +433,18 @@ export function createStore(deps: StoreDeps) {
       await transition(o, "HELD", "stripe", "price mismatch");
       return { handled: "held_price" };
     }
+    if ((await copiesTaken(o.id)) >= EDITION_SIZE) {
+      await alert("warn", "Paid after the edition sold out; refunded", o.id);
+      await transition(o, "HELD", "stripe", "edition sold out");
+      await refund(o, "stripe", "edition sold out: refunded");
+      return { handled: "sold_out_refunded" };
+    }
     if (shipCents !== o.quoted_shipping_cents) {
       await transition(o, "HELD", "stripe", "shipping amount differs from quote");
       await alert("warn", "Paid shipping differs from the quote; order held", o.id);
       return { handled: "held_shipping" };
     }
-    const caps = await capStatus((shipCents ?? 0) / 100);
-    // capStatus counts orders with a customer_order_id; this one has none yet.
+    const caps = await capStatus((shipCents ?? 0) / 100, o.id); // exclude this order itself
     if (!(await salesOpen()) || !caps.result.ok || risk === "elevated" || risk === "highest") {
       await transition(o, "HELD", "stripe", !caps.result.ok ? `cap ${caps.result.ok ? "" : caps.result.reason}` : risk ? `risk ${risk}` : "sales off");
       await alert("info", "Paid order held for review", o.id);
@@ -483,7 +554,7 @@ export function createStore(deps: StoreDeps) {
       [now().toISOString()],
     );
     for (const o of due) {
-      const caps = await capStatus((o.amount_shipping_cents ?? 0) / 100);
+      const caps = await capStatus((o.amount_shipping_cents ?? 0) / 100, o.id);
       if (!(await salesOpen()) || !caps.result.ok) {
         await transition(o, "HELD", "cron", "sales off or cap at release");
         continue;
@@ -516,7 +587,7 @@ export function createStore(deps: StoreDeps) {
 
   return {
     getSetting, setSetting, salesOpen, tripKillSwitch, noteBadSignature, alert,
-    getOrder, capStatus, quote, checkout, rpiCreate, syncFromRpi,
+    getOrder, capStatus, availability, copiesTaken, quote, checkout, rpiCreate, syncFromRpi,
     handleStripeEvent, handleRpiWebhook, customerCancel, requestReprint,
     reconcile, releaseDeferred, daily, adminRelease, adminCancelRefund,
   };

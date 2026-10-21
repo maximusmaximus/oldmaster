@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/store/status")({
     handlers: {
       GET: async () => {
         const store = await getStore();
-        return json({ salesOpen: await store.salesOpen() });
+        return json({ salesOpen: await store.salesOpen(), ...(await store.availability()) });
       },
     },
   },

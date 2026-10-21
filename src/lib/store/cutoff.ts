@@ -49,3 +49,16 @@ export function capDayStartUtc(now: Date): Date {
   if (t.getTime() > now.getTime()) t.setUTCDate(t.getUTCDate() - 1);
   return t;
 }
+
+/** Most recent midnight America/Los_Angeles (the buyer-facing daily limit resets then). */
+export function ptDayStartUtc(now: Date): Date {
+  const p = laParts(now);
+  return laWallToUtc(p.y, p.m, p.d, 0);
+}
+
+/** Next midnight America/Los_Angeles after `now`. */
+export function nextPtMidnightUtc(now: Date): Date {
+  const p = laParts(now);
+  const next = new Date(Date.UTC(p.y, p.m - 1, p.d + 1));
+  return laWallToUtc(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 0);
+}
