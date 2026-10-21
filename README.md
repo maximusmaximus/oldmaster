@@ -48,7 +48,7 @@ Masters project.
 
 ## Book store (`/book`)
 
-Stripe Checkout + RPI Print drop-ship. **Sales ship OFF** (`store_settings.ORDERS_ENABLED='false'`); only an admin turns them on at `/admin/store`.
+Stripe Checkout + RPI Print drop-ship. **Sales are on** (`store_settings.ORDERS_ENABLED='true'`). An admin can turn them off at `/admin/store`, and the safety stops can still turn them off automatically.
 
 Flow: `/book` address form → `POST /api/store/quote` (live RPI shipping estimate, valid 30 min) → `POST /api/store/checkout` (Stripe Checkout Session, $145 + that tier's RPI rate, Stripe Tax) → `POST /api/store/stripe-webhook` (signature-verified, deduped, paid-only) → RPI `POST /orders/create` with customerOrderId `emoji-old-masters-440pp-gls-NNN` (from 004; 001–003 reserved) and GET-before-retry → `POST /api/store/rpi-webhook` + signed cron keep status current → `/order/<token>`.
 
