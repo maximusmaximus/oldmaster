@@ -23,6 +23,7 @@ export const Route = createFileRoute("/api/store/admin/overview")({
           maxExposureUsdPerDay: caps.maxExposure,
           ordersToday: caps.ordersToday,
           exposureTodayUsd: caps.exposureTodayUsd,
+          availability: await store.availability(),
           nextOrderSeq: await store.getSetting("NEXT_ORDER_SEQ"),
           orders: orders.map((o) => ({ ...o, short: String(o.id).slice(0, 8) })),
           alerts,

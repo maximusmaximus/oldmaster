@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BOOK_PRICE_CENTS, TEXT_REFUND, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
+import { BOOK_PRICE_CENTS, EDITION_SIZE, TEXT_DAILY_SOLD_OUT, TEXT_REFUND, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
 import { ENABLED_COUNTRIES } from "@/lib/store/regions";
 
 export const Route = createFileRoute("/book")({
@@ -15,6 +15,19 @@ export const Route = createFileRoute("/book")({
   component: BookPage,
 });
 
+type Availability = { editionSize: number; editionRemaining: number; soldOut: boolean; dailyLimit: number; dailyRemaining: number; dailySoldOut: boolean };
+
+export function AvailabilityLine({ a }: { a: Availability | null }) {
+  if (!a) return null;
+  if (a.soldOut) return <p className="font-semibold text-fg">Sold out: all {a.editionSize} copies are gone.</p>;
+  return (
+    <div className="space-y-0.5">
+      <p className="font-semibold text-fg">{a.editionRemaining} of {a.editionSize} copies left</p>
+      <p className="text-sm">{a.dailySoldOut ? TEXT_DAILY_SOLD_OUT : `${a.dailyRemaining} of ${a.dailyLimit} left today (resets at midnight PT)`}</p>
+    </div>
+  );
+}
+
 type Option = { tier: ShipTier; priceUsd: number; estimatedDeliveryDate: string | null };
 
 const COUNTRY_NAMES: Record<string, string> = { US: "United States", CA: "Canada" };
@@ -22,6 +35,7 @@ const price = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 function BookPage() {
   const [salesOpen, setSalesOpen] = useState<boolean | null>(null);
+  const [avail, setAvail] = useState<Availability | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address1: "", address2: "", city: "", region: "", postal: "", country: "US" });
   const [quote, setQuote] = useState<{ quoteId: string; options: Option[] } | null>(null);
   const [tier, setTier] = useState<ShipTier | null>(null);
@@ -29,7 +43,13 @@ function BookPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch("/api/store/status").then((r) => r.json()).then((d) => setSalesOpen(Boolean(d.salesOpen))).catch(() => setSalesOpen(false));
+    fetch("/api/store/status")
+      .then((r) => r.json())
+      .then((d) => {
+        setSalesOpen(Boolean(d.salesOpen));
+        if (typeof d.editionRemaining === "number") setAvail(d);
+      })
+      .catch(() => setSalesOpen(false));
   }, []);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => {
@@ -65,7 +85,8 @@ function BookPage() {
       if (!r.ok) {
         const msg: Record<string, string> = {
           quote_expired: "That shipping quote expired. Please get a new one.",
-          sold_out_today: "Today's print run is full. Please try again tomorrow.",
+          sold_out_today: TEXT_DAILY_SOLD_OUT,
+          sold_out: "Sold out: all copies of the edition are gone.",
           sales_closed: "Sales are closed right now.",
         };
         throw new Error(msg[d.error] ?? "Checkout is unavailable right now.");
@@ -85,6 +106,8 @@ function BookPage() {
         <img src="/book/preview.jpg" alt="Emoji Old Masters book" width={870} height={864} className="w-full rounded-lg bg-surface-2 object-contain" />
         <div className="space-y-3 text-muted">
           <p className="text-3xl font-bold text-fg">{price(BOOK_PRICE_CENTS)}</p>
+          <p className="text-sm">Limited edition of {EDITION_SIZE} copies, at most 5 sold per day.</p>
+          <AvailabilityLine a={avail} />
           <p>Hardcover, 440 pages, 11.75 × 11.75 in, gloss paper. Printed to order and shipped to you.</p>
           <p>Shipping is charged at cost for your address. Tax is added at checkout where it applies.</p>
           <p className="text-sm">{TEXT_SHIPPING_DUTIES}</p>
@@ -92,7 +115,11 @@ function BookPage() {
         </div>
       </div>
 
-      {salesOpen === false ? (
+      {avail?.soldOut ? (
+        <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">Sold out.</p>
+      ) : avail?.dailySoldOut && salesOpen ? (
+        <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">{TEXT_DAILY_SOLD_OUT}</p>
+      ) : salesOpen === false ? (
         <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">Sales open soon.</p>
       ) : salesOpen === null ? null : (
         <section className="mt-10 rounded-xl bg-surface p-5">
@@ -133,6 +160,7 @@ function BookPage() {
               <p className="mt-2 text-sm text-muted">
                 By continuing you agree to the <Link to="/terms" className="underline">Terms of Sale</Link>. The quote is valid for 30 minutes.
               </p>
+              <div className="mt-4 text-muted"><AvailabilityLine a={avail} /></div>
               <Button className="mt-4" onClick={pay} disabled={busy || !tier}>{busy ? "Opening checkout…" : "Continue to payment"}</Button>
               <p className="mt-2 text-xs text-muted">
                 Payment is processed by Stripe. Read the full <Link to="/terms" className="underline">Terms of Sale</Link> before paying.

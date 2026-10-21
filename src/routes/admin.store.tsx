@@ -17,6 +17,7 @@ type Overview = {
   ordersToday: number;
   exposureTodayUsd: number;
   nextOrderSeq: string;
+  availability?: { editionRemaining: number; editionSize: number };
   orders: Array<Record<string, unknown>>;
   alerts: Array<{ id: number; level: string; message: string; order_id: string | null; at: string }>;
   reprints: Array<{ id: string; order_id: string; description: string; decision: string | null }>;
@@ -68,7 +69,7 @@ function AdminStore() {
         <Button className="mt-2" onClick={() => void act({ action: "setSales", enabled: !data.ordersEnabled }, data.ordersEnabled ? "Turn sales OFF?" : "Turn sales ON? Real customers will be charged and real RPI orders created.")}>
           Turn sales {data.ordersEnabled ? "OFF" : "ON"}
         </Button>
-        <p className="mt-3 text-muted">Today (since 02:00 UTC): {data.ordersToday} orders, ${data.exposureTodayUsd.toFixed(2)} exposure. Next RPI id: emoji-old-masters-440pp-gls-{data.nextOrderSeq.padStart(3, "0")}</p>
+        <p className="mt-3 text-muted">Today (since midnight PT, incl. open checkouts): {data.ordersToday} copies, ${data.exposureTodayUsd.toFixed(2)} exposure. {data.availability ? `Edition: ${data.availability.editionRemaining} of ${data.availability.editionSize} left. ` : ""}Next RPI id: emoji-old-masters-440pp-gls-{data.nextOrderSeq.padStart(3, "0")}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label>Max orders/day <Input className="w-24" value={caps.maxOrders} onChange={(e) => setCaps({ ...caps, maxOrders: e.target.value })} /></label>
           <label>Max $/day <Input className="w-28" value={caps.maxExposureUsd} onChange={(e) => setCaps({ ...caps, maxExposureUsd: e.target.value })} /></label>

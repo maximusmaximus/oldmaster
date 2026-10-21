@@ -157,11 +157,12 @@ async function freshDb() {
 
 function mockStripe(session: () => Record<string, unknown>) {
   const calls: string[] = [];
+  let n = 0;
   const f = (async (url: string, init: RequestInit) => {
     const path = new URL(url).pathname;
     calls.push(`${init.method} ${path}`);
     if (path === "/v1/customers") return Response.json({ id: "cus_test" });
-    if (path === "/v1/checkout/sessions") return Response.json({ id: "cs_test_1", url: "https://checkout.stripe.test/1" });
+    if (path === "/v1/checkout/sessions") return Response.json({ id: ++n === 1 ? "cs_test_1" : `cs_test_${n}`, url: "https://checkout.stripe.test/1" });
     if (path.startsWith("/v1/checkout/sessions/")) return Response.json(session());
     if (path === "/v1/refunds") return Response.json({ id: "re_1", status: "succeeded" });
     throw new Error(`unmocked stripe ${path}`);
@@ -266,9 +267,70 @@ describe("store flow (mocked Stripe + RPI, in-memory DB)", () => {
     await s.store.setSetting("ORDERS_ENABLED", "true");
     await db.sql.query("insert into store_orders (id, state, customer_order_id, paid_at, amount_shipping_cents) select 'o'||g, 'RPI_CREATED', 'emoji-old-masters-440pp-gls-9'||g, $1, 699 from generate_series(10,14) g", [morning().toISOString()]);
     const q = await s.store.quote(ADDR);
+    assert.equal(q.ok, false);
+    assert.match(q.ok ? "" : q.error, /Today's 5 copies are sold/);
+    const a = await s.store.availability();
+    assert.equal(a.dailyRemaining, 0);
+    assert.equal(a.dailySoldOut, true);
+    assert.equal(a.editionRemaining, 495);
+  });
+
+  it("open checkouts reserve copies: the 6th checkout today is refused atomically", async () => {
+    const s = setup();
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const q = await s.store.quote(ADDR);
     assert.ok(q.ok);
-    const c = await s.store.checkout(q.quoteId, "standard");
-    assert.deepEqual(c, { ok: false, status: 503, error: "sold_out_today" });
+    for (let i = 0; i < 5; i++) assert.equal((await s.store.checkout(q.quoteId, "standard")).ok, true);
+    assert.equal((await s.store.availability()).dailyRemaining, 0);
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "sold_out_today" });
+    assert.equal(s.rpi.calls.filter((c) => c.url.endsWith("/orders/create")).length, 0);
+  });
+
+  it("reservations lapse after 30 minutes and the daily count resets at midnight PT", async () => {
+    let t = new Date("2026-10-22T16:00:00Z"); // 9 AM PT
+    const s = setup();
+    const store = createStore({ sql: db.sql, rpi: s.rpi.client, stripe: s.stripe.client, baseUrl: "https://emoji.test", now: () => t });
+    await store.setSetting("ORDERS_ENABLED", "true");
+    await db.sql.query("insert into store_orders (id, state, stripe_session_id, created_at) values ('r1', 'CHECKOUT_OPEN', 'cs_r1', $1)", [t.toISOString()]);
+    assert.equal((await store.availability()).dailyRemaining, 4);
+    t = new Date(t.getTime() + 31 * 60 * 1000);
+    assert.equal((await store.availability()).dailyRemaining, 5);
+    await db.sql.query("insert into store_orders (id, state, paid_at) select 'p'||g, 'RPI_CREATED', '2026-10-23T06:30:00Z' from generate_series(1,5) g"); // 11:30 PM PT Oct 22
+    t = new Date("2026-10-23T06:59:00Z");
+    assert.equal((await store.availability()).dailySoldOut, true);
+    t = new Date("2026-10-23T07:01:00Z"); // 12:01 AM PT Oct 23
+    const a = await store.availability();
+    assert.equal(a.dailySoldOut, false);
+    assert.equal(a.dailyResetsAt, "2026-10-24T07:00:00.000Z");
+    assert.equal(a.editionRemaining, 495);
+  });
+
+  it("edition of 500: sold out blocks quote and checkout; refunded orders free a copy", async () => {
+    const s = setup();
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const q = await s.store.quote(ADDR);
+    assert.ok(q.ok);
+    await db.sql.query("insert into store_orders (id, state, paid_at) select 'e'||g, 'SHIPPED', '2026-10-01T00:00:00Z' from generate_series(1,500) g");
+    const a = await s.store.availability();
+    assert.equal(a.editionRemaining, 0);
+    assert.equal(a.soldOut, true);
+    assert.equal(a.dailyRemaining, 0);
+    assert.equal((await s.store.quote(ADDR)).ok, false);
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "sold_out" });
+    await db.sql.query("update store_orders set state = 'CANCELLED_REFUNDED' where id = 'e1'");
+    assert.equal((await s.store.availability()).editionRemaining, 1);
+  });
+
+  it("paid after the edition sold out: held, refunded, no RPI order", async () => {
+    const s = setup();
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const id = await buy(s);
+    await db.sql.query("insert into store_orders (id, state, paid_at) select 'e'||g, 'SHIPPED', '2026-10-01T00:00:00Z' from generate_series(1,500) g");
+    const r = await s.store.handleStripeEvent({ id: "evt_so", type: "checkout.session.completed", data: { object: { id: "cs_test_1" } } });
+    assert.deepEqual(r, { handled: "sold_out_refunded" });
+    assert.equal((await s.store.getOrder(id))?.state, "CANCELLED_REFUNDED");
+    assert.ok(s.stripe.calls.includes("POST /v1/refunds"));
+    assert.equal(s.rpi.calls.filter((c) => c.url.endsWith("/orders/create")).length, 0);
   });
 
   it("timeout + GET 404 stays RPI_CREATING and reconcile retries with the same id", async () => {
