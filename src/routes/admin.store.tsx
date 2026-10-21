@@ -11,6 +11,7 @@ export const Route = createFileRoute("/admin/store")({
 
 type Overview = {
   ordersEnabled: boolean;
+  stripeReady?: boolean;
   killReason: string;
   maxOrdersPerDay: number;
   maxExposureUsdPerDay: number;
@@ -51,7 +52,7 @@ function AdminStore() {
     return (
       <main className="mx-auto max-w-md px-6 py-16">
         <p className="mb-4 text-muted">Sign in as admin to manage the store.</p>
-        <AdminLogin />
+        <AdminLogin onSuccess={() => void load()} />
         <Button className="mt-4" variant="outline" onClick={() => void load()}>Reload</Button>
       </main>
     );
@@ -66,6 +67,7 @@ function AdminStore() {
           Sales are <b>{data.ordersEnabled ? "ON" : "OFF"}</b>
           {data.killReason ? <span className="text-red-400"> (auto-off: {data.killReason})</span> : null}
         </p>
+        <p className="mt-1 text-muted">Card checkout is {data.stripeReady ? "connected" : "not connected. Turning sales on does not connect Stripe."}</p>
         <Button className="mt-2" onClick={() => void act({ action: "setSales", enabled: !data.ordersEnabled }, data.ordersEnabled ? "Turn sales OFF?" : "Turn sales ON? Real customers will be charged and real RPI orders created.")}>
           Turn sales {data.ordersEnabled ? "OFF" : "ON"}
         </Button>

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { storeEnv } from "@/lib/store/env.server";
+import { getSql } from "@/lib/db";
 import { verifyRpiSignature } from "@/lib/store/signatures";
-import { getStore, json } from "@/lib/store/store.server";
+import { getStore, json, resolveSecrets } from "@/lib/store/store.server";
 
 export const Route = createFileRoute("/api/store/rpi-webhook")({
   server: {
@@ -9,7 +9,8 @@ export const Route = createFileRoute("/api/store/rpi-webhook")({
       POST: async ({ request }) => {
         const raw = await request.text();
         const store = await getStore();
-        if (!verifyRpiSignature(raw, request.headers.get("x-rpi-printapi-hmac-sha256"), storeEnv.rpiWebhookSecret())) {
+        const secrets = await resolveSecrets(await getSql());
+        if (!verifyRpiSignature(raw, request.headers.get("x-rpi-printapi-hmac-sha256"), secrets.RPI_WEBHOOK_SECRET)) {
           console.warn("[store] rpi signature failed");
           await store.noteBadSignature("rpi");
           return json({ error: "bad signature" }, 401);

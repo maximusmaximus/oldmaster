@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { isAdminRequestFrom, notFound } from "@/lib/store/admin-auth.server";
+import { writeSavedSecrets } from "@/lib/store/saved-secrets.server";
 import { getStore, json } from "@/lib/store/store.server";
 
 const Body = z.discriminatedUnion("action", [
@@ -11,6 +12,14 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("cancelRefund"), orderId: z.string().min(10) }),
   z.object({ action: z.literal("resolveAlert"), alertId: z.number().int() }),
   z.object({ action: z.literal("decideReprint"), requestId: z.string().min(10), decision: z.enum(["approved", "declined"]) }),
+  z.object({
+    action: z.literal("installKeys"),
+    stripeSecretKey: z.string().max(300).optional(),
+    stripeWebhookSecret: z.string().max(200).optional(),
+    rpiApiAuth: z.string().max(500).optional(),
+    rpiWebhookSecret: z.string().max(200).optional(),
+    cronSecret: z.string().max(200).optional(),
+  }),
 ]);
 
 export const Route = createFileRoute("/api/store/admin/action")({
@@ -42,6 +51,15 @@ export const Route = createFileRoute("/api/store/admin/action")({
             return json({ ok: true });
           case "decideReprint":
             await sql.query("update store_reprint_requests set decision = $2, decided_at = now() where id = $1", [b.requestId, b.decision]);
+            return json({ ok: true });
+          case "installKeys":
+            await writeSavedSecrets(sql, {
+              STRIPE_SECRET_KEY: b.stripeSecretKey,
+              STRIPE_WEBHOOK_SECRET: b.stripeWebhookSecret,
+              RPI_API_AUTH: b.rpiApiAuth,
+              RPI_WEBHOOK_SECRET: b.rpiWebhookSecret,
+              CRON_SECRET: b.cronSecret,
+            });
             return json({ ok: true });
         }
       },

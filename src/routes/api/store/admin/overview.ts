@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getSql } from "@/lib/db";
 import { isAdminRequestFrom, notFound } from "@/lib/store/admin-auth.server";
-import { getStore, json } from "@/lib/store/store.server";
+import { getStore, json, resolveSecrets } from "@/lib/store/store.server";
 
 export const Route = createFileRoute("/api/store/admin/overview")({
   server: {
@@ -16,8 +16,10 @@ export const Route = createFileRoute("/api/store/admin/overview")({
         const alerts = await sql.query("select id, level, message, order_id, at from store_alerts where resolved = false order by at desc limit 50");
         const reprints = await sql.query("select id, order_id, description, decision, created_at from store_reprint_requests order by created_at desc limit 50");
         const caps = await store.capStatus(0);
+        const secrets = await resolveSecrets(sql);
         return json({
           ordersEnabled: await store.salesOpen(),
+          stripeReady: secrets.STRIPE_SECRET_KEY.startsWith("rk_") || secrets.STRIPE_SECRET_KEY.startsWith("sk_"),
           killReason: await store.getSetting("KILL_REASON"),
           maxOrdersPerDay: caps.maxOrders,
           maxExposureUsdPerDay: caps.maxExposure,

@@ -87,6 +87,7 @@ function BookPage() {
           quote_expired: "That shipping quote expired. Please get a new one.",
           ...REASON_TEXT,
           sales_closed: "Sales are closed right now.",
+          checkout_unavailable: "Card checkout is not connected yet.",
         };
         throw new Error(msg[d.error] ?? "Checkout is unavailable right now.");
       }

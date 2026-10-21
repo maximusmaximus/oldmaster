@@ -11,6 +11,7 @@ export const Route = createFileRoute("/api/store/status")({
           salesOpen: await store.salesOpen(),
           ...(await store.availability()),
           quotesConfigured: storeEnv.rpiApiAuth().startsWith("Basic "),
+          checkoutWiring: "db",
         });
       },
     },

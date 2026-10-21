@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getSql } from "@/lib/db";
 import { RPI_COVER_URL, RPI_INTERIOR_URL } from "@/lib/store/config";
-import { storeEnv } from "@/lib/store/env.server";
 import { verifyCron } from "@/lib/store/signatures";
-import { getStore, json } from "@/lib/store/store.server";
+import { getStore, json, resolveSecrets } from "@/lib/store/store.server";
 
 const JOBS = new Set(["reconcile", "release", "daily"]);
 
@@ -12,7 +12,8 @@ export const Route = createFileRoute("/api/store/cron/$job")({
     handlers: {
       POST: async ({ params, request }) => {
         const job = params.job;
-        if (!JOBS.has(job) || !verifyCron(job, request.headers.get("x-cron-ts"), request.headers.get("x-cron-sig"), storeEnv.cronSecret())) {
+        const secrets = await resolveSecrets(await getSql());
+        if (!JOBS.has(job) || !verifyCron(job, request.headers.get("x-cron-ts"), request.headers.get("x-cron-sig"), secrets.CRON_SECRET)) {
           return new Response("Not Found", { status: 404 });
         }
         const store = await getStore();
