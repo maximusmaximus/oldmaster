@@ -4,7 +4,6 @@ import { AdminLogin } from "@/components/admin-login";
 import { BuyNow } from "@/components/buy-now";
 import { plateCount } from "@/lib/catalog";
 import { FANS_REPO_URL } from "@/lib/fan-works";
-import { BLURB_URL } from "@/lib/shop";
 
 export const Route = createFileRoute("/about")({
   component: About,
@@ -23,14 +22,8 @@ function About() {
         About EMOJI OLD MASTERS
       </h1>
 
-      <a
-        href={BLURB_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => {
-          e.preventDefault();
-          window.open(BLURB_URL, "_blank", "noopener,noreferrer");
-        }}
+      <Link
+        to="/book"
         className="group mt-8 block rounded-xl bg-surface p-1.5 transition-[background-color] duration-150 ease-out hover:bg-surface-2"
       >
         <div className="overflow-hidden rounded-lg bg-surface-2">
@@ -44,14 +37,13 @@ function About() {
         </div>
         <div className="flex items-center justify-between gap-3 px-3 py-3">
           <div className="min-w-0">
-            <p className="font-semibold tracking-wide text-fg">Book preview</p>
+            <p className="font-semibold tracking-wide text-fg">Buy the book</p>
             <p className="mt-0.5 text-sm text-muted">
-              Large Square 12×12 on Blurb
+              11.75 × 11.75 in hardcover, 440 pages, printed to order
             </p>
           </div>
-          <ExternalLink className="size-4 shrink-0 text-subtle transition-[color] duration-150 group-hover:text-fg" />
         </div>
-      </a>
+      </Link>
 
       <div className="mt-8 space-y-5 text-base leading-relaxed text-muted">
         <p>

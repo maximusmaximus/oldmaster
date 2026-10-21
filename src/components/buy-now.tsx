@@ -1,11 +1,6 @@
-import type { MouseEvent } from "react";
-import { BLURB_URL } from "@/lib/shop";
+import { Link } from "@tanstack/react-router";
+import { BOOK_PATH } from "@/lib/shop";
 import { cn } from "@/lib/utils";
-
-function openBlurb(e: MouseEvent<HTMLAnchorElement>) {
-  e.preventDefault();
-  window.open(BLURB_URL, "_blank", "noopener,noreferrer");
-}
 
 export function BuyNow({
   className,
@@ -15,11 +10,8 @@ export function BuyNow({
   size?: "default" | "sm";
 }) {
   return (
-    <a
-      href={BLURB_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={openBlurb}
+    <Link
+      to={BOOK_PATH}
       className={cn(
         "inline-flex items-center justify-center rounded-md bg-headline font-bold tracking-wide text-headline-fg transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-96",
         size === "sm" ? "h-9 px-3 text-xs" : "h-11 px-4 text-sm",
@@ -27,6 +19,6 @@ export function BuyNow({
       )}
     >
       BUY NOW {">"}
-    </a>
+    </Link>
   );
 }

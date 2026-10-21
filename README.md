@@ -10,7 +10,7 @@ This repository is:
 2. The public archive of **fan mosaics** — every shared work lands in [`fans/`](fans/) as a JPEG plus the emoji text
 
 Site: Emoji Old Masters (gallery, plate view, Try your own, About).
-Book: 12 × 12 inch edition on [Blurb](https://www.blurb.com) — BUY NOW on the site.
+Book: 11.75 × 11.75 inch, 440-page hardcover, sold on the site at `/book` (Stripe Checkout, printed to order by RPI Print).
 
 ## Generation (short)
 
@@ -45,3 +45,15 @@ Max Infeld. Generative work from the sewers — art and tech in the same pipe.
 Plate sources are public-domain / Commons reproductions (see each row’s
 `license` and `commons_page`). Site code in this repo is for the Emoji Old
 Masters project.
+
+## Book store (`/book`)
+
+Stripe Checkout + RPI Print drop-ship. **Sales ship OFF** (`store_settings.ORDERS_ENABLED='false'`); only an admin turns them on at `/admin/store`.
+
+Flow: `/book` address form → `POST /api/store/quote` (live RPI shipping estimate, valid 30 min) → `POST /api/store/checkout` (Stripe Checkout Session, $145 + that tier's RPI rate, Stripe Tax) → `POST /api/store/stripe-webhook` (signature-verified, deduped, paid-only) → RPI `POST /orders/create` with customerOrderId `emoji-old-masters-440pp-gls-NNN` (from 004; 001–003 reserved) and GET-before-retry → `POST /api/store/rpi-webhook` + signed cron keep status current → `/order/<token>`.
+
+Server-only env (names only; never commit values): `PUBLIC_BASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RPI_API_AUTH`, `RPI_WEBHOOK_SECRET`, `CRON_SECRET`, optional `RPI_BASE_URL` (default `https://open.api.rpiprint.com`). Existing: `ADMIN_USER`, `ADMIN_PASS`, `DATABASE_URL`.
+
+Cron: `docs/store-cron-worker.js` (Cloudflare Worker) calls `/api/store/cron/{reconcile,release,daily}` with an HMAC of `CRON_SECRET`.
+
+Tests: `npm test` (Stripe and RPI are mocked; no network calls).

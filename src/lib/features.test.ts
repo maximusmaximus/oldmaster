@@ -17,7 +17,7 @@ import {
   mergePins,
   primaryCid,
 } from "./ipfs.ts";
-import { BLURB_URL } from "./shop.ts";
+import { BOOK_PATH } from "./shop.ts";
 import { artworkHead } from "./share-meta.ts";
 
 describe("camera clip settings", () => {
@@ -76,11 +76,8 @@ describe("IPFS helpers", () => {
 });
 
 describe("shop link", () => {
-  it("points at the public Blurb book", () => {
-    assert.equal(
-      BLURB_URL,
-      "https://www.blurb.com/b/12993456-emoji-old-masters",
-    );
+  it("points at the on-site book page", () => {
+    assert.equal(BOOK_PATH, "/book");
   });
 });
 

@@ -1,1 +1,2 @@
-export const BLURB_URL = "https://www.blurb.com/b/12993456-emoji-old-masters";
+/** The book is sold on this site's own buy page (Stripe Checkout + RPI print-on-demand). */
+export const BOOK_PATH = "/book" as const;
