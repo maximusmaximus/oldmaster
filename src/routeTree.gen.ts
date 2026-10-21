@@ -11,8 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as BookRouteImport } from './routes/book'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TryRouteImport } from './routes/try'
 import { Route as TrySecretRouteImport } from './routes/try-secret'
+import { Route as AdminStoreRouteImport } from './routes/admin.store'
 import { Route as ApiFanImageRouteImport } from './routes/api/fan-image'
 import { Route as ApiFanVideoRouteImport } from './routes/api/fan-video'
 import { Route as ApiImageRouteImport } from './routes/api/image'
@@ -20,8 +23,19 @@ import { Route as ApiOgPreviewRouteImport } from './routes/api/og-preview'
 import { Route as ApiRepinRouteImport } from './routes/api/repin'
 import { Route as ApiSvgReelRouteImport } from './routes/api/svg-reel'
 import { Route as FanIdRouteImport } from './routes/fan.$id'
+import { Route as OrderTokenRouteImport } from './routes/order.$token'
 import { Route as PlateSlugRouteImport } from './routes/plate.$slug'
 import { Route as SvgIdRouteImport } from './routes/svg.$id'
+import { Route as ApiStoreCheckoutRouteImport } from './routes/api/store/checkout'
+import { Route as ApiStoreQuoteRouteImport } from './routes/api/store/quote'
+import { Route as ApiStoreRpiWebhookRouteImport } from './routes/api/store/rpi-webhook'
+import { Route as ApiStoreStatusRouteImport } from './routes/api/store/status'
+import { Route as ApiStoreStripeWebhookRouteImport } from './routes/api/store/stripe-webhook'
+import { Route as ApiStoreAdminActionRouteImport } from './routes/api/store/admin/action'
+import { Route as ApiStoreAdminHealthRouteImport } from './routes/api/store/admin/health'
+import { Route as ApiStoreAdminOverviewRouteImport } from './routes/api/store/admin/overview'
+import { Route as ApiStoreCronJobRouteImport } from './routes/api/store/cron/$job'
+import { Route as ApiStoreOrderTokenRouteImport } from './routes/api/store/order.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +47,16 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TryRoute = TryRouteImport.update({
   id: '/try',
   path: '/try',
@@ -41,6 +65,11 @@ const TryRoute = TryRouteImport.update({
 const TrySecretRoute = TrySecretRouteImport.update({
   id: '/try-secret',
   path: '/try-secret',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminStoreRoute = AdminStoreRouteImport.update({
+  id: '/admin/store',
+  path: '/admin/store',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFanImageRoute = ApiFanImageRouteImport.update({
@@ -78,6 +107,11 @@ const FanIdRoute = FanIdRouteImport.update({
   path: '/fan/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrderTokenRoute = OrderTokenRouteImport.update({
+  id: '/order/$token',
+  path: '/order/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlateSlugRoute = PlateSlugRouteImport.update({
   id: '/plate/$slug',
   path: '/plate/$slug',
@@ -88,12 +122,65 @@ const SvgIdRoute = SvgIdRouteImport.update({
   path: '/svg/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStoreCheckoutRoute = ApiStoreCheckoutRouteImport.update({
+  id: '/api/store/checkout',
+  path: '/api/store/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreQuoteRoute = ApiStoreQuoteRouteImport.update({
+  id: '/api/store/quote',
+  path: '/api/store/quote',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreRpiWebhookRoute = ApiStoreRpiWebhookRouteImport.update({
+  id: '/api/store/rpi-webhook',
+  path: '/api/store/rpi-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreStatusRoute = ApiStoreStatusRouteImport.update({
+  id: '/api/store/status',
+  path: '/api/store/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreStripeWebhookRoute = ApiStoreStripeWebhookRouteImport.update({
+  id: '/api/store/stripe-webhook',
+  path: '/api/store/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreAdminActionRoute = ApiStoreAdminActionRouteImport.update({
+  id: '/api/store/admin/action',
+  path: '/api/store/admin/action',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreAdminHealthRoute = ApiStoreAdminHealthRouteImport.update({
+  id: '/api/store/admin/health',
+  path: '/api/store/admin/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreAdminOverviewRoute = ApiStoreAdminOverviewRouteImport.update({
+  id: '/api/store/admin/overview',
+  path: '/api/store/admin/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreCronJobRoute = ApiStoreCronJobRouteImport.update({
+  id: '/api/store/cron/$job',
+  path: '/api/store/cron/$job',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStoreOrderTokenRoute = ApiStoreOrderTokenRouteImport.update({
+  id: '/api/store/order/$token',
+  path: '/api/store/order/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/terms': typeof TermsRoute
   '/try': typeof TryRoute
   '/try-secret': typeof TrySecretRoute
+  '/admin/store': typeof AdminStoreRoute
   '/api/fan-image': typeof ApiFanImageRoute
   '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
@@ -101,14 +188,28 @@ export interface FileRoutesByFullPath {
   '/api/repin': typeof ApiRepinRoute
   '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
+  '/order/$token': typeof OrderTokenRoute
   '/plate/$slug': typeof PlateSlugRoute
   '/svg/$id': typeof SvgIdRoute
+  '/api/store/checkout': typeof ApiStoreCheckoutRoute
+  '/api/store/quote': typeof ApiStoreQuoteRoute
+  '/api/store/rpi-webhook': typeof ApiStoreRpiWebhookRoute
+  '/api/store/status': typeof ApiStoreStatusRoute
+  '/api/store/stripe-webhook': typeof ApiStoreStripeWebhookRoute
+  '/api/store/admin/action': typeof ApiStoreAdminActionRoute
+  '/api/store/admin/health': typeof ApiStoreAdminHealthRoute
+  '/api/store/admin/overview': typeof ApiStoreAdminOverviewRoute
+  '/api/store/cron/$job': typeof ApiStoreCronJobRoute
+  '/api/store/order/$token': typeof ApiStoreOrderTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/terms': typeof TermsRoute
   '/try': typeof TryRoute
   '/try-secret': typeof TrySecretRoute
+  '/admin/store': typeof AdminStoreRoute
   '/api/fan-image': typeof ApiFanImageRoute
   '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
@@ -116,15 +217,29 @@ export interface FileRoutesByTo {
   '/api/repin': typeof ApiRepinRoute
   '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
+  '/order/$token': typeof OrderTokenRoute
   '/plate/$slug': typeof PlateSlugRoute
   '/svg/$id': typeof SvgIdRoute
+  '/api/store/checkout': typeof ApiStoreCheckoutRoute
+  '/api/store/quote': typeof ApiStoreQuoteRoute
+  '/api/store/rpi-webhook': typeof ApiStoreRpiWebhookRoute
+  '/api/store/status': typeof ApiStoreStatusRoute
+  '/api/store/stripe-webhook': typeof ApiStoreStripeWebhookRoute
+  '/api/store/admin/action': typeof ApiStoreAdminActionRoute
+  '/api/store/admin/health': typeof ApiStoreAdminHealthRoute
+  '/api/store/admin/overview': typeof ApiStoreAdminOverviewRoute
+  '/api/store/cron/$job': typeof ApiStoreCronJobRoute
+  '/api/store/order/$token': typeof ApiStoreOrderTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/book': typeof BookRoute
+  '/terms': typeof TermsRoute
   '/try': typeof TryRoute
   '/try-secret': typeof TrySecretRoute
+  '/admin/store': typeof AdminStoreRoute
   '/api/fan-image': typeof ApiFanImageRoute
   '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
@@ -132,16 +247,30 @@ export interface FileRoutesById {
   '/api/repin': typeof ApiRepinRoute
   '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
+  '/order/$token': typeof OrderTokenRoute
   '/plate/$slug': typeof PlateSlugRoute
   '/svg/$id': typeof SvgIdRoute
+  '/api/store/checkout': typeof ApiStoreCheckoutRoute
+  '/api/store/quote': typeof ApiStoreQuoteRoute
+  '/api/store/rpi-webhook': typeof ApiStoreRpiWebhookRoute
+  '/api/store/status': typeof ApiStoreStatusRoute
+  '/api/store/stripe-webhook': typeof ApiStoreStripeWebhookRoute
+  '/api/store/admin/action': typeof ApiStoreAdminActionRoute
+  '/api/store/admin/health': typeof ApiStoreAdminHealthRoute
+  '/api/store/admin/overview': typeof ApiStoreAdminOverviewRoute
+  '/api/store/cron/$job': typeof ApiStoreCronJobRoute
+  '/api/store/order/$token': typeof ApiStoreOrderTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
+    | '/book'
+    | '/terms'
     | '/try'
     | '/try-secret'
+    | '/admin/store'
     | '/api/fan-image'
     | '/api/fan-video'
     | '/api/image'
@@ -149,14 +278,28 @@ export interface FileRouteTypes {
     | '/api/repin'
     | '/api/svg-reel'
     | '/fan/$id'
+    | '/order/$token'
     | '/plate/$slug'
     | '/svg/$id'
+    | '/api/store/checkout'
+    | '/api/store/quote'
+    | '/api/store/rpi-webhook'
+    | '/api/store/status'
+    | '/api/store/stripe-webhook'
+    | '/api/store/admin/action'
+    | '/api/store/admin/health'
+    | '/api/store/admin/overview'
+    | '/api/store/cron/$job'
+    | '/api/store/order/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/book'
+    | '/terms'
     | '/try'
     | '/try-secret'
+    | '/admin/store'
     | '/api/fan-image'
     | '/api/fan-video'
     | '/api/image'
@@ -164,14 +307,28 @@ export interface FileRouteTypes {
     | '/api/repin'
     | '/api/svg-reel'
     | '/fan/$id'
+    | '/order/$token'
     | '/plate/$slug'
     | '/svg/$id'
+    | '/api/store/checkout'
+    | '/api/store/quote'
+    | '/api/store/rpi-webhook'
+    | '/api/store/status'
+    | '/api/store/stripe-webhook'
+    | '/api/store/admin/action'
+    | '/api/store/admin/health'
+    | '/api/store/admin/overview'
+    | '/api/store/cron/$job'
+    | '/api/store/order/$token'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/book'
+    | '/terms'
     | '/try'
     | '/try-secret'
+    | '/admin/store'
     | '/api/fan-image'
     | '/api/fan-video'
     | '/api/image'
@@ -179,15 +336,29 @@ export interface FileRouteTypes {
     | '/api/repin'
     | '/api/svg-reel'
     | '/fan/$id'
+    | '/order/$token'
     | '/plate/$slug'
     | '/svg/$id'
+    | '/api/store/checkout'
+    | '/api/store/quote'
+    | '/api/store/rpi-webhook'
+    | '/api/store/status'
+    | '/api/store/stripe-webhook'
+    | '/api/store/admin/action'
+    | '/api/store/admin/health'
+    | '/api/store/admin/overview'
+    | '/api/store/cron/$job'
+    | '/api/store/order/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  BookRoute: typeof BookRoute
+  TermsRoute: typeof TermsRoute
   TryRoute: typeof TryRoute
   TrySecretRoute: typeof TrySecretRoute
+  AdminStoreRoute: typeof AdminStoreRoute
   ApiFanImageRoute: typeof ApiFanImageRoute
   ApiFanVideoRoute: typeof ApiFanVideoRoute
   ApiImageRoute: typeof ApiImageRoute
@@ -195,8 +366,19 @@ export interface RootRouteChildren {
   ApiRepinRoute: typeof ApiRepinRoute
   ApiSvgReelRoute: typeof ApiSvgReelRoute
   FanIdRoute: typeof FanIdRoute
+  OrderTokenRoute: typeof OrderTokenRoute
   PlateSlugRoute: typeof PlateSlugRoute
   SvgIdRoute: typeof SvgIdRoute
+  ApiStoreCheckoutRoute: typeof ApiStoreCheckoutRoute
+  ApiStoreQuoteRoute: typeof ApiStoreQuoteRoute
+  ApiStoreRpiWebhookRoute: typeof ApiStoreRpiWebhookRoute
+  ApiStoreStatusRoute: typeof ApiStoreStatusRoute
+  ApiStoreStripeWebhookRoute: typeof ApiStoreStripeWebhookRoute
+  ApiStoreAdminActionRoute: typeof ApiStoreAdminActionRoute
+  ApiStoreAdminHealthRoute: typeof ApiStoreAdminHealthRoute
+  ApiStoreAdminOverviewRoute: typeof ApiStoreAdminOverviewRoute
+  ApiStoreCronJobRoute: typeof ApiStoreCronJobRoute
+  ApiStoreOrderTokenRoute: typeof ApiStoreOrderTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -215,6 +397,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/try': {
       id: '/try'
       path: '/try'
@@ -227,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/try-secret'
       fullPath: '/try-secret'
       preLoaderRoute: typeof TrySecretRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/store': {
+      id: '/admin/store'
+      path: '/admin/store'
+      fullPath: '/admin/store'
+      preLoaderRoute: typeof AdminStoreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/fan-image': {
@@ -278,6 +481,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/order/$token': {
+      id: '/order/$token'
+      path: '/order/$token'
+      fullPath: '/order/$token'
+      preLoaderRoute: typeof OrderTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/plate/$slug': {
       id: '/plate/$slug'
       path: '/plate/$slug'
@@ -292,14 +502,87 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SvgIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/store/checkout': {
+      id: '/api/store/checkout'
+      path: '/api/store/checkout'
+      fullPath: '/api/store/checkout'
+      preLoaderRoute: typeof ApiStoreCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/quote': {
+      id: '/api/store/quote'
+      path: '/api/store/quote'
+      fullPath: '/api/store/quote'
+      preLoaderRoute: typeof ApiStoreQuoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/rpi-webhook': {
+      id: '/api/store/rpi-webhook'
+      path: '/api/store/rpi-webhook'
+      fullPath: '/api/store/rpi-webhook'
+      preLoaderRoute: typeof ApiStoreRpiWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/status': {
+      id: '/api/store/status'
+      path: '/api/store/status'
+      fullPath: '/api/store/status'
+      preLoaderRoute: typeof ApiStoreStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/stripe-webhook': {
+      id: '/api/store/stripe-webhook'
+      path: '/api/store/stripe-webhook'
+      fullPath: '/api/store/stripe-webhook'
+      preLoaderRoute: typeof ApiStoreStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/admin/action': {
+      id: '/api/store/admin/action'
+      path: '/api/store/admin/action'
+      fullPath: '/api/store/admin/action'
+      preLoaderRoute: typeof ApiStoreAdminActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/admin/health': {
+      id: '/api/store/admin/health'
+      path: '/api/store/admin/health'
+      fullPath: '/api/store/admin/health'
+      preLoaderRoute: typeof ApiStoreAdminHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/admin/overview': {
+      id: '/api/store/admin/overview'
+      path: '/api/store/admin/overview'
+      fullPath: '/api/store/admin/overview'
+      preLoaderRoute: typeof ApiStoreAdminOverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/cron/$job': {
+      id: '/api/store/cron/$job'
+      path: '/api/store/cron/$job'
+      fullPath: '/api/store/cron/$job'
+      preLoaderRoute: typeof ApiStoreCronJobRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/store/order/$token': {
+      id: '/api/store/order/$token'
+      path: '/api/store/order/$token'
+      fullPath: '/api/store/order/$token'
+      preLoaderRoute: typeof ApiStoreOrderTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  BookRoute: BookRoute,
+  TermsRoute: TermsRoute,
   TryRoute: TryRoute,
   TrySecretRoute: TrySecretRoute,
+  AdminStoreRoute: AdminStoreRoute,
   ApiFanImageRoute: ApiFanImageRoute,
   ApiFanVideoRoute: ApiFanVideoRoute,
   ApiImageRoute: ApiImageRoute,
@@ -307,8 +590,19 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRepinRoute: ApiRepinRoute,
   ApiSvgReelRoute: ApiSvgReelRoute,
   FanIdRoute: FanIdRoute,
+  OrderTokenRoute: OrderTokenRoute,
   PlateSlugRoute: PlateSlugRoute,
   SvgIdRoute: SvgIdRoute,
+  ApiStoreCheckoutRoute: ApiStoreCheckoutRoute,
+  ApiStoreQuoteRoute: ApiStoreQuoteRoute,
+  ApiStoreRpiWebhookRoute: ApiStoreRpiWebhookRoute,
+  ApiStoreStatusRoute: ApiStoreStatusRoute,
+  ApiStoreStripeWebhookRoute: ApiStoreStripeWebhookRoute,
+  ApiStoreAdminActionRoute: ApiStoreAdminActionRoute,
+  ApiStoreAdminHealthRoute: ApiStoreAdminHealthRoute,
+  ApiStoreAdminOverviewRoute: ApiStoreAdminOverviewRoute,
+  ApiStoreCronJobRoute: ApiStoreCronJobRoute,
+  ApiStoreOrderTokenRoute: ApiStoreOrderTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
