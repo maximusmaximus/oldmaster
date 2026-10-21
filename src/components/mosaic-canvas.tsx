@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { MosaicWait } from "@/components/mosaic-wait";
+import { noteMosaicPainted } from "@/lib/mosaic/boot";
 import {
   DEFAULT_PLATE_DENSITY,
   ensurePalette,
-  renderMosaic,
+  renderMosaicAsync,
   type MosaicResult,
 } from "@/lib/mosaic/engine";
 import { loadImage } from "@/lib/mosaic/load-image";
 import { observeVisibility } from "@/lib/mosaic/observe";
+import { withPaintSlot } from "@/lib/mosaic/paint-queue";
 import { cn } from "@/lib/utils";
 
 type Source = HTMLImageElement | ImageBitmap;
@@ -20,6 +23,8 @@ type Props = {
   onRendered?: (info: MosaicResult, canvas: HTMLCanvasElement) => void;
   eager?: boolean;
   fallbackRatio?: number;
+  loader?: "none" | "card" | "stage";
+  fill?: boolean;
 };
 
 export function MosaicCanvas({
@@ -31,10 +36,13 @@ export function MosaicCanvas({
   onRendered,
   eager = false,
   fallbackRatio = 4 / 3,
+  loader = "stage",
+  fill = false,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const seenRef = useRef(eager);
+  const countedRef = useRef(false);
   const [visible, setVisible] = useState(eager);
   const [loaded, setLoaded] = useState<Source | null>(source ?? null);
   const [status, setStatus] = useState<"idle" | "ready" | "error">("idle");
@@ -42,6 +50,10 @@ export function MosaicCanvas({
   useEffect(() => {
     if (source) setLoaded(source);
   }, [source]);
+
+  useEffect(() => {
+    setStatus("idle");
+  }, [density, loaded]);
 
   useEffect(() => {
     if (eager) return;
@@ -79,13 +91,26 @@ export function MosaicCanvas({
 
     const paint = async () => {
       try {
-        const palette = await ensurePalette();
-        if (cancelled) return;
-        const cssWidth = wrap.clientWidth || 320;
-        const info = renderMosaic(canvas, loaded, density, palette, cssWidth);
-        if (cancelled) return;
-        setStatus("ready");
-        onRendered?.(info, canvas);
+        await withPaintSlot(async () => {
+          const palette = await ensurePalette();
+          if (cancelled) return;
+          const cssWidth = wrap.clientWidth || 320;
+          const info = await renderMosaicAsync(
+            canvas,
+            loaded,
+            density,
+            palette,
+            cssWidth,
+            () => cancelled,
+          );
+          if (cancelled) return;
+          setStatus("ready");
+          if (!countedRef.current) {
+            countedRef.current = true;
+            noteMosaicPainted();
+          }
+          onRendered?.(info, canvas);
+        });
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -105,17 +130,15 @@ export function MosaicCanvas({
   return (
     <div
       ref={wrapRef}
-      className={cn("relative w-full overflow-hidden bg-surface-2", className)}
-      style={{ aspectRatio: String(ratio) }}
+      className={cn(
+        "relative w-full overflow-hidden bg-surface-2",
+        fill && "h-full",
+        className,
+      )}
+      style={fill ? undefined : { aspectRatio: String(ratio) }}
     >
-      {status !== "ready" && status !== "error" && (
-        <div
-          className={cn(
-            "absolute inset-0 bg-surface-2",
-            visible && "animate-pulse",
-          )}
-          aria-hidden="true"
-        />
+      {status !== "ready" && status !== "error" && loader !== "none" && (
+        <MosaicWait compact={loader === "card"} />
       )}
       {status === "error" && (
         <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-muted">
@@ -128,6 +151,7 @@ export function MosaicCanvas({
           aria-label={label ?? "Emoji mosaic"}
           className={cn(
             "block h-full w-full transition-opacity duration-300 ease-smooth-out",
+            fill && "object-cover",
             status === "ready" ? "opacity-100" : "opacity-0",
           )}
         />

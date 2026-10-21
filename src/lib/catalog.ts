@@ -48,3 +48,29 @@ export function filterPlates(list: Plate[], q: string, artist: string): Plate[] 
     );
   });
 }
+
+export function suggestedPlates(plate: Plate, count = 6): Plate[] {
+  const picked: Plate[] = [];
+  const seen = new Set([plate.slug]);
+  const take = (list: Plate[]) => {
+    for (const p of list) {
+      if (picked.length >= count) return;
+      if (seen.has(p.slug)) continue;
+      seen.add(p.slug);
+      picked.push(p);
+    }
+  };
+  take(plates.filter((p) => p.artist === plate.artist));
+  const idx = plates.findIndex((p) => p.slug === plate.slug);
+  const neighbors: Plate[] = [];
+  for (let d = 1; d < plates.length && neighbors.length < count * 2; d++) {
+    const a = plates[idx + d];
+    const b = plates[idx - d];
+    if (a) neighbors.push(a);
+    if (b) neighbors.push(b);
+  }
+  take(neighbors.filter((p) => p.orientation === plate.orientation));
+  take(neighbors);
+  take(plates);
+  return picked;
+}

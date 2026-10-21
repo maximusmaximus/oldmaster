@@ -1,21 +1,36 @@
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DENSITY_STEPS } from "@/lib/mosaic/engine";
+import { cn } from "@/lib/utils";
 
 type Props = {
   value: number;
   onChange: (next: number) => void;
   cols?: number;
   rows?: number;
+  locked?: boolean;
+  busy?: boolean;
+  steps?: readonly number[];
+  lockLabel?: string;
 };
 
-export function DensityControl({ value, onChange, cols, rows }: Props) {
+export function DensityControl({
+  value,
+  onChange,
+  cols,
+  rows,
+  locked = false,
+  busy = false,
+  steps = DENSITY_STEPS,
+  lockLabel = "Saved — glyph count is locked",
+}: Props) {
   const at = Math.max(
     0,
-    DENSITY_STEPS.findIndex((step) => step === value),
+    steps.findIndex((step) => step === value),
   );
   const coarser = at > 0;
-  const finer = at >= 0 && at < DENSITY_STEPS.length - 1;
+  const finer = at >= 0 && at < steps.length - 1;
+  const frozen = locked || busy;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -25,30 +40,53 @@ export function DensityControl({ value, onChange, cols, rows }: Props) {
           variant="ghost"
           size="icon"
           className="size-11 rounded-md"
-          disabled={!coarser}
+          disabled={frozen || !coarser}
           aria-label="Fewer emoji"
-          onClick={() => onChange(DENSITY_STEPS[Math.max(0, at - 1)])}
+          onClick={() => onChange(steps[Math.max(0, at - 1)]!)}
         >
-          <Minus className="size-4" />
+          {busy ? (
+            <span className="density-snail text-lg" aria-hidden="true">
+              🐌
+            </span>
+          ) : (
+            <Minus className="size-4" />
+          )}
         </Button>
-        <span className="min-w-20 px-2 text-center text-sm text-muted tabular-nums">
-          {cols && rows ? `${cols} × ${rows}` : "Density"}
+        <span className="flex min-w-24 items-center justify-center gap-1.5 px-2 text-center text-sm text-muted tabular-nums">
+          {busy ? (
+            <span className="density-snail text-xl" aria-hidden="true">
+              🐌
+            </span>
+          ) : null}
+          {cols && rows ? `${cols} × ${rows}` : "Glyphs"}
         </span>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           className="size-11 rounded-md"
-          disabled={!finer}
+          disabled={frozen || !finer}
           aria-label="More emoji"
           onClick={() =>
-            onChange(DENSITY_STEPS[Math.min(DENSITY_STEPS.length - 1, at + 1)])
+            onChange(steps[Math.min(steps.length - 1, at + 1)]!)
           }
         >
-          <Plus className="size-4" />
+          {busy ? (
+            <span className="density-snail text-lg" aria-hidden="true">
+              🐌
+            </span>
+          ) : (
+            <Plus className="size-4" />
+          )}
         </Button>
       </div>
-      <p className="text-xs text-subtle">Fewer, larger glyphs · denser, smaller</p>
+      <p className={cn("text-xs text-subtle", locked && "text-muted")}>
+        {locked
+          ? lockLabel
+          : busy
+            ? "🐌 packing more glyphs…"
+            : "Fewer, larger glyphs · denser, smaller"}
+      </p>
     </div>
   );
 }

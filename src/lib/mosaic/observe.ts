@@ -14,7 +14,7 @@ function getObserver(): IntersectionObserver {
           cb(entry.isIntersecting && tallEnough);
         }
       },
-      { root: null, rootMargin: "240px 0px", threshold: 0.01 },
+      { root: null, rootMargin: "480px 0px", threshold: 0.01 },
     );
   }
   return io;

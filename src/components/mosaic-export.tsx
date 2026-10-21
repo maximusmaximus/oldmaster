@@ -21,6 +21,7 @@ type Props = {
   emojiText?: string | null;
   jpegUrl?: string | null;
   compact?: boolean;
+  cover?: boolean;
 };
 
 export function MosaicExport({
@@ -30,6 +31,7 @@ export function MosaicExport({
   emojiText,
   jpegUrl,
   compact = false,
+  cover = false,
 }: Props) {
   const [busy, setBusy] = useState<"copy" | "jpg" | "svg" | null>(null);
   const [copied, setCopied] = useState(false);
@@ -143,7 +145,13 @@ export function MosaicExport({
         onClick={onSvg}
       >
         <FileType2 className="size-4" />
-        {compact ? "SVG" : "Download SVG"}
+        {compact
+          ? cover
+            ? "SVG cover"
+            : "SVG"
+          : cover
+            ? "Download SVG cover"
+            : "Download SVG"}
       </Button>
     </div>
   );

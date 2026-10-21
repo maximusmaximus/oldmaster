@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
+import { AdminLogin } from "@/components/admin-login";
 import { BuyNow } from "@/components/buy-now";
 import { plateCount } from "@/lib/catalog";
 import { FANS_REPO_URL } from "@/lib/fan-works";
+import { BLURB_URL } from "@/lib/shop";
 
 export const Route = createFileRoute("/about")({
   component: About,
@@ -20,6 +22,36 @@ function About() {
       <h1 className="mt-2 font-sans text-4xl font-bold tracking-tight text-headline">
         About EMOJI OLD MASTERS
       </h1>
+
+      <a
+        href={BLURB_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => {
+          e.preventDefault();
+          window.open(BLURB_URL, "_blank", "noopener,noreferrer");
+        }}
+        className="group mt-8 block rounded-xl bg-surface p-1.5 transition-[background-color] duration-150 ease-out hover:bg-surface-2"
+      >
+        <div className="overflow-hidden rounded-lg bg-surface-2">
+          <img
+            src="/book/preview.jpg"
+            alt="Preview of the Emoji Old Masters book"
+            width={870}
+            height={864}
+            className="mx-auto w-full object-contain outline outline-1 -outline-offset-1 outline-white/10"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-3">
+          <div className="min-w-0">
+            <p className="font-semibold tracking-wide text-fg">Book preview</p>
+            <p className="mt-0.5 text-sm text-muted">
+              Large Square 12×12 on Blurb
+            </p>
+          </div>
+          <ExternalLink className="size-4 shrink-0 text-subtle transition-[color] duration-150 group-hover:text-fg" />
+        </div>
+      </a>
 
       <div className="mt-8 space-y-5 text-base leading-relaxed text-muted">
         <p>
@@ -130,6 +162,8 @@ function About() {
           </div>
         </a>
       </section>
+
+      <AdminLogin />
     </main>
   );
 }

@@ -113,8 +113,53 @@ async function calibrate(): Promise<Palette> {
   return { glyphs, lut: buildLut(labs) };
 }
 
+const PALETTE_CACHE_KEY = "eom-palette-v2";
+
+function paletteFromCache(): Palette | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(PALETTE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { n?: number; glyphs?: string[]; lut?: number[] };
+    if (parsed.n !== EMOJI_GLYPHS.length || !Array.isArray(parsed.glyphs) || !Array.isArray(parsed.lut)) {
+      return null;
+    }
+    if (parsed.lut.length !== LUT_SIZE || parsed.glyphs.length < 8) return null;
+    return { glyphs: parsed.glyphs, lut: Uint16Array.from(parsed.lut) };
+  } catch {
+    return null;
+  }
+}
+
+function paletteToCache(palette: Palette) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(
+      PALETTE_CACHE_KEY,
+      JSON.stringify({
+        n: EMOJI_GLYPHS.length,
+        glyphs: palette.glyphs,
+        lut: Array.from(palette.lut),
+      }),
+    );
+  } catch {
+    /* quota */
+  }
+}
+
 export function ensurePalette(): Promise<Palette> {
-  if (!palettePromise) palettePromise = calibrate();
+  if (!palettePromise) {
+    palettePromise = (async () => {
+      const cached = paletteFromCache();
+      if (cached) {
+        void waitForEmojiFonts();
+        return cached;
+      }
+      const palette = await calibrate();
+      paletteToCache(palette);
+      return palette;
+    })();
+  }
   return palettePromise;
 }
 
@@ -253,6 +298,83 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+let atlasCanvas: HTMLCanvasElement | null = null;
+let atlasCtx: CanvasRenderingContext2D | null = null;
+let atlasCell = 0;
+let atlasCount = 0;
+
+function glyphAtlas(palette: Palette, cell: number): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  if (!atlasCanvas) {
+    atlasCanvas = document.createElement("canvas");
+    atlasCtx = atlasCanvas.getContext("2d");
+  }
+  if (!atlasCtx) return null;
+  if (atlasCell === cell && atlasCount === palette.glyphs.length) return atlasCanvas;
+  const count = palette.glyphs.length;
+  atlasCanvas.width = Math.max(1, count * cell);
+  atlasCanvas.height = cell;
+  atlasCtx.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+  atlasCtx.font = `${Math.max(6, Math.floor(cell * 0.92))}px ${EMOJI_FONT}`;
+  atlasCtx.textAlign = "center";
+  atlasCtx.textBaseline = "middle";
+  for (let i = 0; i < count; i++) {
+    atlasCtx.fillText(palette.glyphs[i] ?? "⬜", i * cell + cell / 2, cell / 2);
+  }
+  atlasCell = cell;
+  atlasCount = count;
+  return atlasCanvas;
+}
+
+function blitMosaic(
+  ctx: CanvasRenderingContext2D,
+  sample: HTMLCanvasElement,
+  pix: Uint8ClampedArray,
+  cols: number,
+  rows: number,
+  palette: Palette,
+  canvasW: number,
+  canvasH: number,
+  collect: boolean,
+): { glyphs: string[]; colors: Uint8ClampedArray } {
+  const cellW = canvasW / cols;
+  const cellH = canvasH / rows;
+  const cell = Math.max(6, Math.floor(Math.min(cellW, cellH)));
+  const atlas = glyphAtlas(palette, cell);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sample, 0, 0, canvasW, canvasH);
+  const glyphs = collect ? new Array<string>(cols * rows) : [];
+  const colors = collect ? new Uint8ClampedArray(cols * rows * 3) : new Uint8ClampedArray(0);
+  const { lut, glyphs: paletteGlyphs } = palette;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      const gi = lut[lutIndex(pix[i]!, pix[i + 1]!, pix[i + 2]!)] ?? 0;
+      if (atlas) {
+        ctx.drawImage(
+          atlas,
+          gi * cell,
+          0,
+          cell,
+          cell,
+          x * cellW + (cellW - cell) / 2,
+          y * cellH + (cellH - cell) / 2,
+          cell,
+          cell,
+        );
+      }
+      if (collect) {
+        const idx = y * cols + x;
+        glyphs[idx] = paletteGlyphs[gi] ?? "⬜";
+        colors[idx * 3] = pix[i]!;
+        colors[idx * 3 + 1] = pix[i + 1]!;
+        colors[idx * 3 + 2] = pix[i + 2]!;
+      }
+    }
+  }
+  return { glyphs, colors };
+}
+
 export function renderMosaic(
   canvas: HTMLCanvasElement,
   source: CanvasImageSource & { width: number; height: number },
@@ -286,38 +408,223 @@ export function renderMosaic(
   sctx.imageSmoothingEnabled = true;
   sctx.drawImage(source, 0, 0, cols, rows);
   const pix = sctx.getImageData(0, 0, cols, rows).data;
+  const painted = blitMosaic(
+    ctx,
+    sample,
+    pix,
+    cols,
+    rows,
+    palette,
+    canvas.width,
+    canvas.height,
+    true,
+  );
+  return { cols, rows, cells: cols * rows, glyphs: painted.glyphs, colors: painted.colors };
+}
 
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#0c0b0a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+export type LiveRenderer = {
+  draw: (opts: {
+    canvas: HTMLCanvasElement;
+    video: HTMLVideoElement;
+    wrapW: number;
+    wrapH: number;
+    density: number;
+    palette: Palette;
+    capture?: boolean;
+  }) => MosaicResult;
+};
+
+function coverVideo(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  dw: number,
+  dh: number,
+) {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const srcAspect = vw / vh;
+  const dstAspect = dw / dh;
+  let sx = 0;
+  let sy = 0;
+  let sw = vw;
+  let sh = vh;
+  if (srcAspect > dstAspect) {
+    sw = vh * dstAspect;
+    sx = (vw - sw) / 2;
+  } else {
+    sh = vw / dstAspect;
+    sy = (vh - sh) / 2;
+  }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, dw, dh);
+}
+
+export function createLiveRenderer(): LiveRenderer {
+  const sample = document.createElement("canvas");
+  const sctx = sample.getContext("2d", { willReadFrequently: true });
+  const atlas = document.createElement("canvas");
+  const actx = atlas.getContext("2d");
+  let out: CanvasRenderingContext2D | null = null;
+  let bound: HTMLCanvasElement | null = null;
+  let atlasCell = 0;
+  let atlasCount = 0;
+
+  const rebuildAtlas = (palette: Palette, cell: number) => {
+    if (!actx) return;
+    const count = palette.glyphs.length;
+    atlas.width = Math.max(1, count * cell);
+    atlas.height = cell;
+    actx.clearRect(0, 0, atlas.width, atlas.height);
+    actx.font = `${Math.max(6, Math.floor(cell * 0.92))}px ${EMOJI_FONT}`;
+    actx.textAlign = "center";
+    actx.textBaseline = "middle";
+    for (let i = 0; i < count; i++) {
+      actx.fillText(palette.glyphs[i] ?? "⬜", i * cell + cell / 2, cell / 2);
+    }
+    atlasCell = cell;
+    atlasCount = count;
+  };
+
+  return {
+    draw({ canvas, video, wrapW, wrapH, density, palette, capture }) {
+      const { cols, rows } = gridForImage(wrapW, wrapH, density);
+      const empty: MosaicResult = {
+        cols,
+        rows,
+        cells: cols * rows,
+        glyphs: [],
+        colors: new Uint8ClampedArray(0),
+      };
+      if (!sctx || !actx || !video.videoWidth) return empty;
+
+      const cell = Math.max(6, Math.min(18, Math.floor(1536 / Math.max(cols, rows))));
+      const outW = Math.max(1, cols * cell);
+      const outH = Math.max(1, rows * cell);
+      if (canvas.width !== outW || canvas.height !== outH) {
+        canvas.width = outW;
+        canvas.height = outH;
+        out = null;
+        bound = null;
+      }
+      if (bound !== canvas || !out) {
+        out =
+          canvas.getContext("2d", { alpha: false }) ?? canvas.getContext("2d");
+        bound = canvas;
+      }
+      if (!out) return empty;
+
+      if (atlasCell !== cell || atlasCount !== palette.glyphs.length) {
+        rebuildAtlas(palette, cell);
+      }
+
+      if (sample.width !== cols || sample.height !== rows) {
+        sample.width = cols;
+        sample.height = rows;
+      }
+      sctx.imageSmoothingEnabled = true;
+      coverVideo(sctx, video, cols, rows);
+      const pix = sctx.getImageData(0, 0, cols, rows).data;
+
+      out.imageSmoothingEnabled = false;
+      out.drawImage(sample, 0, 0, outW, outH);
+
+      const { lut, glyphs: paletteGlyphs } = palette;
+      const glyphs = capture ? new Array<string>(cols * rows) : empty.glyphs;
+      const colors = capture
+        ? new Uint8ClampedArray(cols * rows * 3)
+        : empty.colors;
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = (y * cols + x) * 4;
+          const gi = lut[lutIndex(pix[i]!, pix[i + 1]!, pix[i + 2]!)] ?? 0;
+          out.drawImage(atlas, gi * cell, 0, cell, cell, x * cell, y * cell, cell, cell);
+          if (capture) {
+            const idx = y * cols + x;
+            glyphs[idx] = paletteGlyphs[gi] ?? "⬜";
+            colors[idx * 3] = pix[i]!;
+            colors[idx * 3 + 1] = pix[i + 1]!;
+            colors[idx * 3 + 2] = pix[i + 2]!;
+          }
+        }
+      }
+
+      return { cols, rows, cells: cols * rows, glyphs, colors };
+    },
+  };
+}
+
+export async function renderMosaicAsync(
+  canvas: HTMLCanvasElement,
+  source: CanvasImageSource & { width: number; height: number },
+  longSideCells: number,
+  palette: Palette,
+  cssWidth: number,
+  isCancelled?: () => boolean,
+): Promise<MosaicResult> {
+  const { cols, rows } = gridForImage(source.width, source.height, longSideCells);
+  const empty: MosaicResult = {
+    cols,
+    rows,
+    cells: cols * rows,
+    glyphs: [],
+    colors: new Uint8ClampedArray(0),
+  };
+  const dpr =
+    typeof window === "undefined" ? 1 : Math.min(2, window.devicePixelRatio || 1);
+  const cssH = cssWidth * (source.height / source.width);
+  canvas.width = Math.max(1, Math.round(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.round(cssH * dpr));
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssH}px`;
+
+  const sample = document.createElement("canvas");
+  sample.width = cols;
+  sample.height = rows;
+  const sctx = sample.getContext("2d", { willReadFrequently: true });
+  const ctx = canvas.getContext("2d");
+  if (!sctx || !ctx) return empty;
+
+  sctx.imageSmoothingEnabled = true;
+  sctx.drawImage(source, 0, 0, cols, rows);
+  const pix = sctx.getImageData(0, 0, cols, rows).data;
 
   const cellW = canvas.width / cols;
   const cellH = canvas.height / rows;
-  const fontPx = Math.max(8, Math.floor(Math.min(cellW, cellH) * 0.92));
-  ctx.font = `${fontPx}px ${EMOJI_FONT}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
+  const cell = Math.max(6, Math.floor(Math.min(cellW, cellH)));
+  const atlas = glyphAtlas(palette, cell);
   const { lut, glyphs: paletteGlyphs } = palette;
   const glyphs: string[] = new Array(cols * rows);
   const colors = new Uint8ClampedArray(cols * rows * 3);
+  const yieldEvery = longSideCells <= 32 ? rows + 1 : Math.max(4, Math.ceil(rows / 12));
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sample, 0, 0, canvas.width, canvas.height);
   for (let y = 0; y < rows; y++) {
+    if (isCancelled?.()) return empty;
     for (let x = 0; x < cols; x++) {
       const i = (y * cols + x) * 4;
-      const r = pix[i];
-      const g = pix[i + 1];
-      const b = pix[i + 2];
-      const glyph = paletteGlyphs[lut[lutIndex(r, g, b)]] ?? "⬜";
+      const gi = lut[lutIndex(pix[i]!, pix[i + 1]!, pix[i + 2]!)] ?? 0;
+      if (atlas) {
+        ctx.drawImage(
+          atlas,
+          gi * cell,
+          0,
+          cell,
+          cell,
+          x * cellW + (cellW - cell) / 2,
+          y * cellH + (cellH - cell) / 2,
+          cell,
+          cell,
+        );
+      }
       const idx = y * cols + x;
-      glyphs[idx] = glyph;
-      colors[idx * 3] = r;
-      colors[idx * 3 + 1] = g;
-      colors[idx * 3 + 2] = b;
-      const cx = (x + 0.5) * cellW;
-      const cy = (y + 0.5) * cellH;
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(x * cellW, y * cellH, cellW + 0.5, cellH + 0.5);
-      ctx.fillText(glyph, cx, cy);
+      glyphs[idx] = paletteGlyphs[gi] ?? "⬜";
+      colors[idx * 3] = pix[i]!;
+      colors[idx * 3 + 1] = pix[i + 1]!;
+      colors[idx * 3 + 2] = pix[i + 2]!;
+    }
+    if (y % yieldEvery === yieldEvery - 1) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     }
   }
 
@@ -327,6 +634,7 @@ export function renderMosaic(
 export async function canvasToJpegBase64(
   canvas: HTMLCanvasElement,
   maxWidth = 1200,
+  quality = 0.84,
 ): Promise<string> {
   const scale = Math.min(1, maxWidth / Math.max(1, canvas.width));
   const w = Math.max(1, Math.round(canvas.width * scale));
@@ -341,7 +649,7 @@ export async function canvasToJpegBase64(
     out.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Could not export JPEG"))),
       "image/jpeg",
-      0.84,
+      quality,
     );
   });
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -360,6 +668,6 @@ export function downloadJpeg(base64: string, filename: string) {
   a.click();
 }
 
-export const DENSITY_STEPS = [12, 16, 20, 24, 32, 40, 48, 64] as const;
+export const DENSITY_STEPS = [24, 32, 40, 48, 64, 80, 96, 128, 160] as const;
 export const GALLERY_DENSITY = 20;
-export const DEFAULT_PLATE_DENSITY = 32;
+export const DEFAULT_PLATE_DENSITY = 64;

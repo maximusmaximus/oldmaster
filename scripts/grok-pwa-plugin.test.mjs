@@ -323,6 +323,24 @@ test("emits og:image for a public host and prefers a custom card", () => {
   assert.match(custom, /property="og:type" content="x:game"/);
 });
 
+test("fan and plate paths use the work OG preview image", () => {
+  const fan = injectGrokPwaHead("<html><head></head></html>", {
+    host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-fan-")),
+    site: { title: "Wild Race", card: "custom", image: "/og.jpg" },
+    path: "/fan/fan-abcdef123456",
+  });
+  assert.match(fan, /api\/og-preview\?p=%2Ffan%2Ffan-abcdef123456/);
+  assert.match(fan, /name="twitter:image"/);
+  const plate = injectGrokPwaHead("<html><head></head></html>", {
+    host: "wild-race.grok.me",
+    cwd: mkdtempSync(join(tmpdir(), "grok-og-plate-")),
+    site: { title: "Wild Race", card: "custom" },
+    path: "/plate/starry-night",
+  });
+  assert.match(plate, /api\/og-preview\?p=%2Fplate%2Fstarry-night/);
+});
+
 test("placeholder og:image appends site.color when it is 6-digit hex", () => {
   const themed = injectGrokPwaHead("<html><head></head></html>", {
     host: "wild-race.grok.me",

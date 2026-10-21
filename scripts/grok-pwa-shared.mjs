@@ -207,6 +207,11 @@ export function readGrokProjectId() {
   return String(fromProcess ?? "").trim();
 }
 
+export function readGrokExtensionsEnabled() {
+  const fromProcess = typeof process !== "undefined" ? process.env?.VITE_GROK_EXTENSIONS : "";
+  return String(fromProcess ?? "").trim() !== "0";
+}
+
 export function readXCreator() {
   const fromProcess = typeof process !== "undefined" ? process.env?.X_CREATOR : "";
   return String(fromProcess ?? "").trim();
@@ -234,6 +239,7 @@ export function grokExtensionsHeadTags(projectId = readGrokProjectId()) {
   if (projectId) {
     tags.push(`<meta name="grok-project-id" content="${id}">`);
   }
+  if (!readGrokExtensionsEnabled()) return tags;
   tags.push(
     `<script src="${GROK_EXTENSIONS_SCRIPT_SRC}"${
       projectId ? ` data-project-id="${id}"` : ""
@@ -297,16 +303,6 @@ export function titleFromDocument(html) {
   return match ? unescapeHtml(match[1]).trim() : "";
 }
 
-export function descriptionFromDocument(html) {
-  const tags = String(html ?? "").match(/<meta\b[^>]*>/gi) || [];
-  for (const tag of tags) {
-    if (!/\bname\s*=\s*["']description["']/i.test(tag)) continue;
-    const content = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i);
-    if (content) return unescapeHtml(content[1]).trim();
-  }
-  return "";
-}
-
 export function resolveOgTitle(
   site = {},
   appName = DEFAULT_APP_NAME,
@@ -336,15 +332,6 @@ export function resolveOgCardAsset(site = {}, cwd = process.cwd()) {
   return ogCardPublicPath(cwd) || (detectCustomOgCard(cwd, site) ? String(site.image ?? "").trim() || "/og.jpg" : "");
 }
 
-/** Per-work share cards: fan mosaics and catalog plates. */
-export function sharePreviewForPath(pathname) {
-  const path = String(pathname ?? "").split("?")[0];
-  if (/^\/fan\/fan-[a-f0-9]{12}$/.test(path) || /^\/plate\/[a-z0-9-]+$/.test(path)) {
-    return { image: `/api/og-preview?p=${encodeURIComponent(path)}` };
-  }
-  return null;
-}
-
 /** Stamp `card=custom` when public/og.jpg or public/og.png is on disk. */
 function applyCustomCardFromFs(site, cwd) {
   const disk = ogCardPublicPath(cwd);
@@ -357,23 +344,15 @@ export function grokOgHeadTags({
   appName = DEFAULT_APP_NAME,
   site = {},
   documentTitle = "",
-  documentDescription = "",
   cwd = process.cwd(),
-  path = "",
 } = {}) {
-  const share = sharePreviewForPath(path);
-  const title =
-    share && documentTitle
-      ? documentTitle
-      : resolveOgTitle(site, appName, host, documentTitle);
+  const title = resolveOgTitle(site, appName, host, documentTitle);
   const publicHost = resolvePublicHost(host);
   const tags = [
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta property="og:title" content="${escapeHtml(title)}">`,
   ];
-  const description = share
-    ? String(documentDescription || documentTitle || site.description || "").trim()
-    : String(site.description ?? "").trim();
+  const description = String(site.description ?? "").trim();
   if (description) {
     tags.push(`<meta property="og:description" content="${escapeHtml(description)}">`);
   }
@@ -381,23 +360,16 @@ export function grokOgHeadTags({
     tags.push(`<meta property="og:type" content="x:game">`);
   }
   if (publicHost) {
-    const asset = share?.image || resolveOgCardAsset(site, cwd);
+    const asset = resolveOgCardAsset(site, cwd);
     const custom = Boolean(asset);
     let image = custom
       ? `https://${publicHost}${asset.startsWith("/") ? asset : `/${asset}`}`
       : `${ogServiceUrl()}/v1/card.png?host=${encodeURIComponent(publicHost)}&title=${encodeURIComponent(title)}`;
-    const color = !custom && !share ? placeholderCardColor(site) : "";
+    const color = !custom ? placeholderCardColor(site) : "";
     if (color) image += `&color=${encodeURIComponent(color)}`;
     tags.push(`<meta property="og:image" content="${escapeHtml(image)}">`);
-    tags.push(`<meta name="twitter:image" content="${escapeHtml(image)}">`);
-    if (!share) {
-      tags.push(`<meta property="og:image:width" content="1200">`);
-      tags.push(`<meta property="og:image:height" content="630">`);
-    }
-    const pagePath = String(path ?? "").split("?")[0] || "/";
-    tags.push(
-      `<meta property="og:url" content="${escapeHtml(`https://${publicHost}${pagePath}`)}">`,
-    );
+    tags.push(`<meta property="og:image:width" content="1200">`);
+    tags.push(`<meta property="og:image:height" content="630">`);
     const banner = String(site.banner ?? "").trim();
     if (banner) {
       const bannerUrl = `https://${publicHost}${banner.startsWith("/") ? banner : `/${banner}`}`;
@@ -407,6 +379,13 @@ export function grokOgHeadTags({
     }
   }
   return tags;
+}
+
+function stripGrokExtensionsScript(html) {
+  return String(html).replace(
+    /<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/grok-app-builder\/extensions\.js[^"']*["'][^>]*>\s*<\/script>/gi,
+    "",
+  );
 }
 
 export function stripShareMetaTags(html) {
@@ -453,15 +432,13 @@ export function normalizeHeadContext(ctx = {}) {
     host: ctx.host ?? "",
     cwd,
     site,
-    path: ctx.path ?? "",
   };
 }
 
 export function injectGrokPwaHead(html, ctx = {}) {
   if (typeof html !== "string") return html;
-  const { site, projectId, creator, creatorId, host, cwd, path } = normalizeHeadContext(ctx);
+  const { site, projectId, creator, creatorId, host, cwd } = normalizeHeadContext(ctx);
   const documentTitle = titleFromDocument(html);
-  const documentDescription = descriptionFromDocument(html);
   const appName = resolveOgTitle(
     site,
     ctx.appName ?? DEFAULT_APP_NAME,
@@ -469,6 +446,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
     documentTitle,
   );
   let next = stripShareMetaTags(html);
+  if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 
   const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
@@ -480,10 +458,10 @@ export function injectGrokPwaHead(html, ctx = {}) {
 
   next = insertAfterHeadOpen(
     next,
-    grokOgHeadTags({ host, appName, site, documentTitle, documentDescription, cwd, path }).join(""),
+    grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
   );
 
-  if (!next.includes("/grok-app-builder/extensions.js")) {
+  if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));
   } else if (projectId && !next.includes('name="grok-project-id"')) {
     missing.push(`<meta name="grok-project-id" content="${escapeHtml(projectId)}">`);
@@ -534,7 +512,6 @@ export function createHeadInjector(ctx = {}) {
       host: normalized.host,
       cwd: normalized.cwd,
       site: normalized.site,
-      path: normalized.path,
     });
 
   return {

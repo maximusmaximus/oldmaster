@@ -12,11 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as TryRouteImport } from './routes/try'
+import { Route as TrySecretRouteImport } from './routes/try-secret'
 import { Route as ApiFanImageRouteImport } from './routes/api/fan-image'
+import { Route as ApiFanVideoRouteImport } from './routes/api/fan-video'
 import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ApiOgPreviewRouteImport } from './routes/api/og-preview'
+import { Route as ApiRepinRouteImport } from './routes/api/repin'
+import { Route as ApiSvgReelRouteImport } from './routes/api/svg-reel'
 import { Route as FanIdRouteImport } from './routes/fan.$id'
 import { Route as PlateSlugRouteImport } from './routes/plate.$slug'
+import { Route as SvgIdRouteImport } from './routes/svg.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,9 +38,19 @@ const TryRoute = TryRouteImport.update({
   path: '/try',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrySecretRoute = TrySecretRouteImport.update({
+  id: '/try-secret',
+  path: '/try-secret',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFanImageRoute = ApiFanImageRouteImport.update({
   id: '/api/fan-image',
   path: '/api/fan-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFanVideoRoute = ApiFanVideoRouteImport.update({
+  id: '/api/fan-video',
+  path: '/api/fan-video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImageRoute = ApiImageRouteImport.update({
@@ -48,6 +63,16 @@ const ApiOgPreviewRoute = ApiOgPreviewRouteImport.update({
   path: '/api/og-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRepinRoute = ApiRepinRouteImport.update({
+  id: '/api/repin',
+  path: '/api/repin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSvgReelRoute = ApiSvgReelRouteImport.update({
+  id: '/api/svg-reel',
+  path: '/api/svg-reel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FanIdRoute = FanIdRouteImport.update({
   id: '/fan/$id',
   path: '/fan/$id',
@@ -58,37 +83,57 @@ const PlateSlugRoute = PlateSlugRouteImport.update({
   path: '/plate/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SvgIdRoute = SvgIdRouteImport.update({
+  id: '/svg/$id',
+  path: '/svg/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/try': typeof TryRoute
+  '/try-secret': typeof TrySecretRoute
   '/api/fan-image': typeof ApiFanImageRoute
+  '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
   '/api/og-preview': typeof ApiOgPreviewRoute
+  '/api/repin': typeof ApiRepinRoute
+  '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
   '/plate/$slug': typeof PlateSlugRoute
+  '/svg/$id': typeof SvgIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/try': typeof TryRoute
+  '/try-secret': typeof TrySecretRoute
   '/api/fan-image': typeof ApiFanImageRoute
+  '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
   '/api/og-preview': typeof ApiOgPreviewRoute
+  '/api/repin': typeof ApiRepinRoute
+  '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
   '/plate/$slug': typeof PlateSlugRoute
+  '/svg/$id': typeof SvgIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/try': typeof TryRoute
+  '/try-secret': typeof TrySecretRoute
   '/api/fan-image': typeof ApiFanImageRoute
+  '/api/fan-video': typeof ApiFanVideoRoute
   '/api/image': typeof ApiImageRoute
   '/api/og-preview': typeof ApiOgPreviewRoute
+  '/api/repin': typeof ApiRepinRoute
+  '/api/svg-reel': typeof ApiSvgReelRoute
   '/fan/$id': typeof FanIdRoute
   '/plate/$slug': typeof PlateSlugRoute
+  '/svg/$id': typeof SvgIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,42 +141,62 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/try'
+    | '/try-secret'
     | '/api/fan-image'
+    | '/api/fan-video'
     | '/api/image'
     | '/api/og-preview'
+    | '/api/repin'
+    | '/api/svg-reel'
     | '/fan/$id'
     | '/plate/$slug'
+    | '/svg/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
     | '/try'
+    | '/try-secret'
     | '/api/fan-image'
+    | '/api/fan-video'
     | '/api/image'
     | '/api/og-preview'
+    | '/api/repin'
+    | '/api/svg-reel'
     | '/fan/$id'
     | '/plate/$slug'
+    | '/svg/$id'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/try'
+    | '/try-secret'
     | '/api/fan-image'
+    | '/api/fan-video'
     | '/api/image'
     | '/api/og-preview'
+    | '/api/repin'
+    | '/api/svg-reel'
     | '/fan/$id'
     | '/plate/$slug'
+    | '/svg/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   TryRoute: typeof TryRoute
+  TrySecretRoute: typeof TrySecretRoute
   ApiFanImageRoute: typeof ApiFanImageRoute
+  ApiFanVideoRoute: typeof ApiFanVideoRoute
   ApiImageRoute: typeof ApiImageRoute
   ApiOgPreviewRoute: typeof ApiOgPreviewRoute
+  ApiRepinRoute: typeof ApiRepinRoute
+  ApiSvgReelRoute: typeof ApiSvgReelRoute
   FanIdRoute: typeof FanIdRoute
   PlateSlugRoute: typeof PlateSlugRoute
+  SvgIdRoute: typeof SvgIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -157,11 +222,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/try-secret': {
+      id: '/try-secret'
+      path: '/try-secret'
+      fullPath: '/try-secret'
+      preLoaderRoute: typeof TrySecretRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/fan-image': {
       id: '/api/fan-image'
       path: '/api/fan-image'
       fullPath: '/api/fan-image'
       preLoaderRoute: typeof ApiFanImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/fan-video': {
+      id: '/api/fan-video'
+      path: '/api/fan-video'
+      fullPath: '/api/fan-video'
+      preLoaderRoute: typeof ApiFanVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/image': {
@@ -178,6 +257,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOgPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/repin': {
+      id: '/api/repin'
+      path: '/api/repin'
+      fullPath: '/api/repin'
+      preLoaderRoute: typeof ApiRepinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/svg-reel': {
+      id: '/api/svg-reel'
+      path: '/api/svg-reel'
+      fullPath: '/api/svg-reel'
+      preLoaderRoute: typeof ApiSvgReelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/fan/$id': {
       id: '/fan/$id'
       path: '/fan/$id'
@@ -192,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlateSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/svg/$id': {
+      id: '/svg/$id'
+      path: '/svg/$id'
+      fullPath: '/svg/$id'
+      preLoaderRoute: typeof SvgIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -199,11 +299,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   TryRoute: TryRoute,
+  TrySecretRoute: TrySecretRoute,
   ApiFanImageRoute: ApiFanImageRoute,
+  ApiFanVideoRoute: ApiFanVideoRoute,
   ApiImageRoute: ApiImageRoute,
   ApiOgPreviewRoute: ApiOgPreviewRoute,
+  ApiRepinRoute: ApiRepinRoute,
+  ApiSvgReelRoute: ApiSvgReelRoute,
   FanIdRoute: FanIdRoute,
   PlateSlugRoute: PlateSlugRoute,
+  SvgIdRoute: SvgIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

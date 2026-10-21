@@ -7,8 +7,10 @@ import {
 } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { BootScreen } from "@/components/boot-screen";
+import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "EMOJI OLD MASTERS";
@@ -37,12 +39,12 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=6" },
       { title: APP_NAME },
       {
         name: "description",
         content:
-          "Public-domain Old Master paintings remade as live emoji mosaics. Search 484 plates, change density, or try your own image.",
+          "Public-domain Old Master paintings remade as live emoji mosaics. Change density, or try your own image.",
       },
       { name: "theme-color", content: "#0c0b0a" },
     ],
@@ -72,11 +74,23 @@ export const Route = createRootRoute({
       <body className="flex min-h-dvh flex-col bg-bg text-fg">
         <PreviewHostBridge />
         <AuthProvider>
+          <BootScreen />
           <SiteHeader />
           <div className="flex-1">
             <Outlet />
           </div>
           <SiteFooter />
+          <Toaster
+            theme="dark"
+            position="top-center"
+            toastOptions={{
+              classNames: {
+                toast: "border border-border bg-surface text-fg",
+                title: "text-fg",
+                description: "text-muted",
+              },
+            }}
+          />
         </AuthProvider>
         <Scripts />
       </body>

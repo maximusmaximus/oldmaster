@@ -1,4 +1,4 @@
-const MAX_CONCURRENT = 6;
+const MAX_CONCURRENT = 8;
 let active = 0;
 const waiters: Array<() => void> = [];
 
@@ -21,22 +21,32 @@ function release() {
   if (next) next();
 }
 
-const inflight = new Map<string, Promise<HTMLImageElement>>();
+const inflight = new Map<string, Promise<HTMLImageElement | ImageBitmap>>();
 
-export function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement | ImageBitmap> {
   const cached = inflight.get(src);
   if (cached) return cached;
   const promise = (async () => {
     await acquire();
     try {
+      const res = await fetch(src, { cache: "force-cache" });
+      if (!res.ok) throw new Error("Image failed to load");
+      const blob = await res.blob();
+      if (typeof createImageBitmap === "function") {
+        return await createImageBitmap(blob);
+      }
       const img = new Image();
       img.decoding = "async";
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Image failed to load"));
-        img.src = src;
-      });
+      const url = URL.createObjectURL(blob);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("Image failed to load"));
+          img.src = url;
+        });
+      } finally {
+        URL.revokeObjectURL(url);
+      }
       return img;
     } finally {
       release();

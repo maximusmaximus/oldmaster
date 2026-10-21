@@ -1,2 +1,1 @@
-/** Replace with the Blurb book URL when Max sends the code. */
-export const BLURB_URL = "https://www.blurb.com";
+export const BLURB_URL = "https://www.blurb.com/b/12993456-emoji-old-masters";

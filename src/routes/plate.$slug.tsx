@@ -4,8 +4,11 @@ import { useCallback, useRef, useState } from "react";
 import { DensityControl } from "@/components/density-control";
 import { MosaicCanvas } from "@/components/mosaic-canvas";
 import { MosaicExport } from "@/components/mosaic-export";
+import { ShareWork } from "@/components/share-work";
+import { SuggestedPlates } from "@/components/suggested-works";
 import { Button } from "@/components/ui/button";
-import { formatYear, getPlate } from "@/lib/catalog";
+import { formatYear, getPlate, suggestedPlates } from "@/lib/catalog";
+import { artworkHead, pageOrigin } from "@/lib/share-meta";
 import {
   DEFAULT_PLATE_DENSITY,
   type MosaicResult,
@@ -19,24 +22,23 @@ export const Route = createFileRoute("/plate/$slug")({
     if (!plate) throw notFound();
     return plate;
   },
-  head: ({ loaderData }) => ({
-    meta: [
+  head: async ({ loaderData }) => {
+    if (!loaderData) {
+      return { meta: [{ title: "EMOJI OLD MASTERS" }] };
+    }
+    const origin = await pageOrigin();
+    return artworkHead(
       {
-        title: loaderData
-          ? `${loaderData.title} — EMOJI OLD MASTERS`
-          : "EMOJI OLD MASTERS",
+        title: loaderData.title,
+        description: `${loaderData.title} by ${loaderData.artist}, ${formatYear(loaderData.year)}. Live emoji mosaic.`,
+        path: `/plate/${loaderData.slug}`,
+        imagePath: `/api/og-preview?p=${encodeURIComponent(`/plate/${loaderData.slug}`)}`,
+        artist: loaderData.artist,
+        year: formatYear(loaderData.year),
       },
-      loaderData
-        ? {
-            name: "description",
-            content: `${loaderData.title} by ${loaderData.artist}, ${loaderData.year}. Live emoji mosaic.`,
-          }
-        : {
-            name: "description",
-            content: "Public-domain paintings remade as live emoji mosaics.",
-          },
-    ],
-  }),
+      origin,
+    );
+  },
   component: PlateView,
 });
 
@@ -45,10 +47,12 @@ function PlateView() {
   const [density, setDensity] = useState(DEFAULT_PLATE_DENSITY);
   const [grid, setGrid] = useState<MosaicResult | null>(null);
   const [showSource, setShowSource] = useState(false);
+  const [rebuilding, setRebuilding] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onRendered = useCallback((info: MosaicResult, canvas: HTMLCanvasElement) => {
     setGrid(info);
     canvasRef.current = canvas;
+    setRebuilding(false);
   }, []);
   const src = paintingSrc(plate.source_image_url, 1200);
 
@@ -95,9 +99,13 @@ function PlateView() {
           <div className="mt-6">
             <DensityControl
               value={density}
-              onChange={setDensity}
+              onChange={(next) => {
+                setRebuilding(true);
+                setDensity(next);
+              }}
               cols={grid?.cols}
               rows={grid?.rows}
+              busy={rebuilding}
             />
           </div>
 
@@ -110,6 +118,13 @@ function PlateView() {
             >
               {showSource ? "Show mosaic" : "Show original"}
             </Button>
+          </div>
+          <div className="mt-4">
+            <ShareWork
+              path={`/plate/${plate.slug}`}
+              title={`${plate.title} — EMOJI OLD MASTERS`}
+              text={`${plate.title} by ${plate.artist}, remade as an emoji mosaic.`}
+            />
           </div>
           <div className="mt-4">
             <MosaicExport
@@ -149,6 +164,8 @@ function PlateView() {
           </dl>
         </aside>
       </div>
+
+      <SuggestedPlates plates={suggestedPlates(plate)} />
     </main>
   );
 }

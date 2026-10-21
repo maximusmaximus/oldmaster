@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { createFileRoute } from "@tanstack/react-router";
 
 const UA =
@@ -7,8 +10,14 @@ const ALLOWED_HOSTS = new Set([
   "thumb.wikimedia.org",
   "commons.wikimedia.org",
 ]);
+const CACHE_DIR = join(process.cwd(), ".data/thumbs");
 const MAX_WIDTH = 1600;
 const MIN_WIDTH = 80;
+
+function cacheKey(url: string, width: number): string {
+  const hash = createHash("sha1").update(`${width}:${url}`).digest("hex").slice(0, 20);
+  return join(CACHE_DIR, `${hash}.bin`);
+}
 
 function clampWidth(raw: string | null): number {
   const n = Number(raw ?? "800");
@@ -62,6 +71,21 @@ export const Route = createFileRoute("/api/image")({
         }
 
         try {
+          const key = cacheKey(upstreamUrl, width);
+          try {
+            const cached = await readFile(key);
+            const meta = await readFile(`${key}.type`, "utf8").catch(() => "image/jpeg");
+            return new Response(cached, {
+              status: 200,
+              headers: {
+                "content-type": meta.trim() || "image/jpeg",
+                "cache-control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=2592000",
+                "access-control-allow-origin": "*",
+              },
+            });
+          } catch {
+            /* miss */
+          }
           const up = await fetchUpstream(upstreamUrl);
           if (!up.ok) {
             return new Response("Upstream error", { status: 502 });
@@ -70,12 +94,20 @@ export const Route = createFileRoute("/api/image")({
           if (!type.startsWith("image/")) {
             return new Response("Not an image", { status: 502 });
           }
-          const body = await up.arrayBuffer();
+          const body = Buffer.from(await up.arrayBuffer());
+          void mkdir(CACHE_DIR, { recursive: true })
+            .then(() =>
+              Promise.all([
+                writeFile(key, body),
+                writeFile(`${key}.type`, type),
+              ]),
+            )
+            .catch(() => undefined);
           return new Response(body, {
             status: 200,
             headers: {
               "content-type": type,
-              "cache-control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+              "cache-control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=2592000",
               "access-control-allow-origin": "*",
             },
           });
