@@ -8,8 +8,10 @@
 import { randomBytes, createHash } from "node:crypto";
 import {
   BOOK_PRICE_CENTS,
+  BOOK_TITLE,
   DEFAULT_MAX_EXPOSURE_USD_PER_DAY,
   DEFAULT_MAX_ORDERS_PER_DAY,
+  DEFAULT_PRODUCT_DETAIL,
   EDITION_SIZE,
   EXPECTED_PRINT_COST_USD,
   REASON_TEXT,
@@ -30,7 +32,6 @@ import {
   quoteIsFresh,
   RETRY_BACKOFF_MIN,
   shippingOverageTooHigh,
-  subtotalIsExpected,
   exposureAlert,
   rpiTotalTooHigh,
   type SiteState,
@@ -71,6 +72,7 @@ export type OrderRow = {
   last_error: string | null;
   created_at: Date | string;
   paid_at: Date | string | null;
+  book_price_cents?: number | null;
 };
 
 const token = () => randomBytes(16).toString("base64url");
@@ -178,6 +180,34 @@ export function createStore(deps: StoreDeps) {
     return { ordersToday: n, exposureTodayUsd: exposure, maxOrders, maxExposure, resetsAt: w.resetsAt, result: capCheck({ ordersToday: n, maxOrders }) };
   }
 
+  async function catalog() {
+    const title = ((await getSetting("PRODUCT_TITLE")) || BOOK_TITLE).slice(0, 80);
+    const priceRaw = Number(await getSetting("PRODUCT_PRICE_CENTS"));
+    const priceCents = Number.isInteger(priceRaw) && priceRaw >= 9000 && priceRaw <= 200000 ? priceRaw : BOOK_PRICE_CENTS;
+    const detail = ((await getSetting("PRODUCT_DETAIL")) || DEFAULT_PRODUCT_DETAIL).slice(0, 500);
+    const editionRaw = Number(await getSetting("PRODUCT_EDITION_SIZE"));
+    const editionSize = Number.isInteger(editionRaw) && editionRaw >= 1 && editionRaw <= 100000 ? editionRaw : EDITION_SIZE;
+    return { title, priceCents, detail, editionSize };
+  }
+
+  async function setCatalog(input: { title: string; priceCents: number; detail: string; editionSize: number }) {
+    const taken = await copiesTaken();
+    if (!Number.isInteger(input.priceCents) || input.priceCents < 9000 || input.priceCents > 200000) {
+      return { ok: false as const, error: "Price must be between $90 and $2,000." };
+    }
+    if (!Number.isInteger(input.editionSize) || input.editionSize < taken || input.editionSize > 100000) {
+      return { ok: false as const, error: `Edition can't be smaller than the ${taken} copies already taken.` };
+    }
+    const title = input.title.trim().slice(0, 80);
+    const detail = input.detail.trim().slice(0, 500);
+    if (!title || !detail) return { ok: false as const, error: "Title and description are required." };
+    await setSetting("PRODUCT_TITLE", title);
+    await setSetting("PRODUCT_PRICE_CENTS", String(input.priceCents));
+    await setSetting("PRODUCT_DETAIL", detail);
+    await setSetting("PRODUCT_EDITION_SIZE", String(input.editionSize));
+    return { ok: true as const };
+  }
+
   async function copiesTaken(excludeOrderId: string | null = null): Promise<number> {
     const w = windows();
     const where = TAKEN_SQL.replaceAll("$RES", "$1");
@@ -192,12 +222,13 @@ export function createStore(deps: StoreDeps) {
   async function availability() {
     const taken = await copiesTaken();
     const caps = await capStatus(0);
-    const editionRemaining = Math.max(0, EDITION_SIZE - taken);
+    const editionSize = (await catalog()).editionSize;
+    const editionRemaining = Math.max(0, editionSize - taken);
     const countLeft = Math.max(0, caps.maxOrders - caps.ordersToday);
     const reason: UnavailableReason | null =
       editionRemaining === 0 ? "edition_sold_out" : countLeft === 0 ? "daily_count_reached" : null;
     return {
-      editionSize: EDITION_SIZE,
+      editionSize,
       editionRemaining,
       soldOut: editionRemaining === 0,
       dailyLimit: caps.maxOrders,
@@ -240,6 +271,7 @@ export function createStore(deps: StoreDeps) {
     if (!quoteIsFresh(new Date(q.created_at), now())) return { ok: false, status: 410, error: "quote_expired" };
     const option = (JSON.parse(q.options_json) as ShippingOption[]).find((o) => o.tier === tier);
     if (!option) return { ok: false, status: 422, error: "tier_unavailable" };
+    const product = await catalog();
     const caps = await capStatus(option.priceUsd);
     if (!caps.result.ok) return { ok: false, status: 409, error: "daily_count_reached" };
     const address = JSON.parse(q.address_json) as Address;
@@ -251,12 +283,12 @@ export function createStore(deps: StoreDeps) {
     const taken = TAKEN_SQL.replaceAll("$RES", "$8");
     const today = TODAY_SQL.replaceAll("$DAY", "$7").replaceAll("$RES", "$8");
     const inserted = await sql.query<{ id: string }>(
-      `insert into store_orders (id, state, quote_id, ship_tier, quoted_shipping_cents, address_json, created_at, stripe_session_id)
-       select $1, 'CHECKOUT_OPEN', $2, $3, $4, $5, $6, 'pending:' || $1
+      `insert into store_orders (id, state, quote_id, ship_tier, quoted_shipping_cents, address_json, created_at, stripe_session_id, book_price_cents)
+       select $1, 'CHECKOUT_OPEN', $2, $3, $4, $5, $6, 'pending:' || $1, $11
        where (select count(*) from store_orders where ${taken}) < $9
          and (select count(*) from store_orders where ${today}) < $10
        returning id`,
-      [orderToken, quoteId, tier, Math.round(option.priceUsd * 100), q.address_json, now().toISOString(), w.day, w.res, EDITION_SIZE, caps.maxOrders],
+      [orderToken, quoteId, tier, Math.round(option.priceUsd * 100), q.address_json, now().toISOString(), w.day, w.res, product.editionSize, caps.maxOrders, product.priceCents],
     );
     if (inserted.length === 0) {
       const a = await availability();
@@ -265,7 +297,16 @@ export function createStore(deps: StoreDeps) {
     try {
       const customer = await deps.stripe.createCustomer(address, `cus-${orderToken}`);
       const session = await deps.stripe.createCheckoutSession(
-        checkoutSessionParams({ orderToken, quoteId, customerId: customer.id, option, baseUrl: deps.baseUrl }),
+        checkoutSessionParams({
+          orderToken,
+          quoteId,
+          customerId: customer.id,
+          option,
+          baseUrl: deps.baseUrl,
+          priceCents: product.priceCents,
+          productName: product.title,
+          productDetail: product.detail,
+        }),
         `cs-${orderToken}`,
       );
       await sql.query("update store_orders set stripe_session_id = $2, stripe_customer_id = $3, updated_at = now() where id = $1", [orderToken, session.id, customer.id]);
@@ -324,7 +365,7 @@ export function createStore(deps: StoreDeps) {
       address,
       webhookUrl: `${deps.baseUrl}/api/store/rpi-webhook?o=${o.id}`,
       payload: JSON.stringify({ s: o.stripe_session_id, t: o.id }),
-      retailPriceUsd: (BOOK_PRICE_CENTS / 100).toFixed(2),
+      retailPriceUsd: ((o.book_price_cents ?? BOOK_PRICE_CENTS) / 100).toFixed(2),
     });
     const out = await createWithGetBeforeRetry(deps.rpi, body);
     if (out.kind === "created" || out.kind === "adopted") {
@@ -370,7 +411,7 @@ export function createStore(deps: StoreDeps) {
       return;
     }
     const total = data.pricing?.orderTotal;
-    if (rpiTotalTooHigh(total, o.amount_shipping_cents) && o.state !== "NEEDS_ATTENTION") {
+    if (rpiTotalTooHigh(total, o.amount_shipping_cents, o.book_price_cents ?? BOOK_PRICE_CENTS) && o.state !== "NEEDS_ATTENTION") {
       await alert("critical", `RPI total $${total} for ${o.customer_order_id} is above $145 + paid shipping + 15%; held. Cancel+Refund before RPI's 02:00 UTC charge or within the 2-hour holding bin if needed.`, o.id);
       await transition(o, "NEEDS_ATTENTION", actor, "rpi total above per-order limit");
       return;
@@ -442,12 +483,13 @@ export function createStore(deps: StoreDeps) {
       cancel_deadline_utc: deadline.toISOString(),
       risk_level: risk,
     });
-    if (!subtotalIsExpected(s.amount_subtotal)) {
-      await tripKillSwitch(`paid subtotal ${s.amount_subtotal} is not ${BOOK_PRICE_CENTS}`);
+    const expectedPrice = o.book_price_cents ?? BOOK_PRICE_CENTS;
+    if (s.amount_subtotal !== expectedPrice) {
+      await tripKillSwitch(`paid subtotal ${s.amount_subtotal} is not ${expectedPrice}`);
       await transition(o, "HELD", "stripe", "price mismatch");
       return { handled: "held_price" };
     }
-    if ((await copiesTaken(o.id)) >= EDITION_SIZE) {
+    if ((await copiesTaken(o.id)) >= (await catalog()).editionSize) {
       await alert("warn", "Paid after the edition sold out; refunded", o.id);
       await transition(o, "HELD", "stripe", "edition sold out");
       await refund(o, "stripe", "edition sold out: refunded");
@@ -620,7 +662,7 @@ export function createStore(deps: StoreDeps) {
 
   return {
     getSetting, setSetting, salesOpen, tripKillSwitch, noteBadSignature, alert,
-    getOrder, capStatus, availability, copiesTaken, quote, checkout, rpiCreate, syncFromRpi,
+    getOrder, capStatus, availability, copiesTaken, catalog, setCatalog, quote, checkout, rpiCreate, syncFromRpi,
     handleStripeEvent, handleRpiWebhook, customerCancel, requestReprint,
     reconcile, releaseDeferred, daily, adminRelease, adminCancelRefund,
   };

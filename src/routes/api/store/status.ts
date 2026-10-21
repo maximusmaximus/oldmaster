@@ -10,6 +10,7 @@ export const Route = createFileRoute("/api/store/status")({
         return json({
           salesOpen: await store.salesOpen(),
           ...(await store.availability()),
+          product: await store.catalog(),
           quotesConfigured: storeEnv.rpiApiAuth().startsWith("Basic "),
           checkoutWiring: "db",
         });

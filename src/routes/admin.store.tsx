@@ -19,6 +19,7 @@ type Overview = {
   exposureTodayUsd: number;
   nextOrderSeq: string;
   availability?: { editionRemaining: number; editionSize: number };
+  product?: { title: string; priceCents: number; detail: string; editionSize: number };
   orders: Array<Record<string, unknown>>;
   alerts: Array<{ id: number; level: string; message: string; order_id: string | null; at: string }>;
   reprints: Array<{ id: string; order_id: string; description: string; decision: string | null }>;
@@ -29,6 +30,7 @@ function AdminStore() {
   const [health, setHealth] = useState<unknown>(null);
   const [denied, setDenied] = useState(false);
   const [caps, setCaps] = useState({ maxOrders: "", maxExposureUsd: "" });
+  const [product, setProduct] = useState({ title: "", detail: "", priceUsd: "", editionSize: "" });
 
   const load = useCallback(async () => {
     const r = await fetch("/api/store/admin/overview");
@@ -37,6 +39,14 @@ function AdminStore() {
     setDenied(false);
     setData(d);
     setCaps({ maxOrders: String(d.maxOrdersPerDay), maxExposureUsd: String(d.maxExposureUsdPerDay) });
+    if (d.product) {
+      setProduct({
+        title: d.product.title,
+        detail: d.product.detail,
+        priceUsd: (d.product.priceCents / 100).toFixed(2),
+        editionSize: String(d.product.editionSize),
+      });
+    }
   }, []);
   useEffect(() => void load(), [load]);
 
@@ -77,6 +87,30 @@ function AdminStore() {
           <label>Alert above $/day (not a cap) <Input className="w-28" value={caps.maxExposureUsd} onChange={(e) => setCaps({ ...caps, maxExposureUsd: e.target.value })} /></label>
           <Button variant="outline" onClick={() => void act({ action: "setCaps", maxOrders: Number(caps.maxOrders), maxExposureUsd: Number(caps.maxExposureUsd) })}>Save caps</Button>
         </div>
+      </section>
+
+      <section className="rounded-lg bg-surface p-4">
+        <h2 className="text-lg font-semibold">Price and product</h2>
+        <p className="mt-1 text-muted">New checkouts use this. A payment already open keeps the price it started with. Print files and the card and printer keys are not changed.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label>Price in USD <Input value={product.priceUsd} onChange={(e) => setProduct({ ...product, priceUsd: e.target.value })} /></label>
+          <label>Edition size <Input value={product.editionSize} onChange={(e) => setProduct({ ...product, editionSize: e.target.value })} /></label>
+          <label className="sm:col-span-2">Title <Input value={product.title} onChange={(e) => setProduct({ ...product, title: e.target.value })} /></label>
+          <label className="sm:col-span-2">Description <Input value={product.detail} onChange={(e) => setProduct({ ...product, detail: e.target.value })} /></label>
+        </div>
+        <Button
+          className="mt-3"
+          variant="outline"
+          onClick={() => void act({
+            action: "setProduct",
+            title: product.title,
+            detail: product.detail,
+            priceUsd: Number(product.priceUsd),
+            editionSize: Number(product.editionSize),
+          }, "Update the price and product for new orders?")}
+        >
+          Save product
+        </Button>
       </section>
 
       <section>

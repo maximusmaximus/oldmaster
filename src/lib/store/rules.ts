@@ -26,9 +26,13 @@ export function exposureAlert(exposureTodayUsd: number, thresholdUsd: number): b
 }
 
 /** Per-order sanity: RPI total above ($145 + paid shipping) × 1.15. */
-export function rpiTotalTooHigh(rpiOrderTotalUsd: number | null | undefined, paidShippingCents: number | null | undefined): boolean {
+export function rpiTotalTooHigh(
+  rpiOrderTotalUsd: number | null | undefined,
+  paidShippingCents: number | null | undefined,
+  bookPriceCents = BOOK_PRICE_CENTS,
+): boolean {
   if (typeof rpiOrderTotalUsd !== "number") return false;
-  const limit = (BOOK_PRICE_CENTS + (paidShippingCents ?? 0)) / 100 * 1.15;
+  const limit = (bookPriceCents + (paidShippingCents ?? 0)) / 100 * 1.15;
   return rpiOrderTotalUsd > Math.round(limit * 100) / 100;
 }
 

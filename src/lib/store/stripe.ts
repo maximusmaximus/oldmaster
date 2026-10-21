@@ -2,7 +2,7 @@
  * Minimal Stripe REST client (form-encoded) so the store needs no SDK.
  * Pure: callers inject fetch and the secret key. Never logs the key.
  */
-import { BOOK_CURRENCY, BOOK_PRICE_CENTS, BOOK_TAX_CODE, BOOK_TITLE, TEXT_REFUND, TIER_LABEL } from "./config.ts";
+import { BOOK_CURRENCY, BOOK_TAX_CODE, TEXT_REFUND, TIER_LABEL } from "./config.ts";
 import type { Address, ShippingOption } from "./rpi.ts";
 
 /** Uses the Stripe account's default API version (set in the Dashboard). */
@@ -59,6 +59,9 @@ export function checkoutSessionParams(args: {
   customerId: string;
   option: ShippingOption;
   baseUrl: string;
+  priceCents: number;
+  productName: string;
+  productDetail: string;
 }) {
   const orderUrl = `${args.baseUrl}/order/${args.orderToken}`;
   return {
@@ -70,10 +73,11 @@ export function checkoutSessionParams(args: {
         quantity: 1,
         price_data: {
           currency: BOOK_CURRENCY,
-          unit_amount: BOOK_PRICE_CENTS,
+          unit_amount: args.priceCents,
           tax_behavior: "exclusive",
           product_data: {
-            name: `${BOOK_TITLE} (hardcover, 440 pages, 11.75 × 11.75 in)`,
+            name: args.productName.slice(0, 120),
+            description: args.productDetail.slice(0, 500),
             tax_code: BOOK_TAX_CODE,
           },
         },
@@ -90,7 +94,7 @@ export function checkoutSessionParams(args: {
     },
     metadata: { order_token: args.orderToken, quote_id: args.quoteId, tier: args.option.tier },
     payment_intent_data: {
-      description: `${BOOK_TITLE}: track or cancel your order at ${orderUrl}`,
+      description: `${args.productName}: track or cancel your order at ${orderUrl}`,
       metadata: { order_token: args.orderToken },
     },
     success_url: `${orderUrl}?new=1`,

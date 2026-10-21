@@ -7,6 +7,8 @@ export const BOOK_TITLE = "Emoji Old Masters";
 export const BOOK_PRICE_CENTS = 14500;
 export const BOOK_CURRENCY = "usd";
 export const BOOK_TAX_CODE = "txcd_35010000"; // Stripe: printed books
+export const DEFAULT_PRODUCT_DETAIL =
+  "Hardcover, 440 pages, 11.75 × 11.75 in, gloss paper. Printed to order and shipped to you.";
 
 export const RPI_SKU = "BKPH_HCIW_STD_11.750x11.750IN_80C_MT_40_100T_GLS_44";
 export const RPI_PAGE_COUNT = 440;

@@ -20,6 +20,13 @@ const Body = z.discriminatedUnion("action", [
     rpiWebhookSecret: z.string().max(200).optional(),
     cronSecret: z.string().max(200).optional(),
   }),
+  z.object({
+    action: z.literal("setProduct"),
+    title: z.string().min(1).max(80),
+    detail: z.string().min(1).max(500),
+    priceUsd: z.number().min(90).max(2000),
+    editionSize: z.number().int().min(1).max(100000),
+  }),
 ]);
 
 export const Route = createFileRoute("/api/store/admin/action")({
@@ -61,6 +68,13 @@ export const Route = createFileRoute("/api/store/admin/action")({
               CRON_SECRET: b.cronSecret,
             });
             return json({ ok: true });
+          case "setProduct":
+            return json(await store.setCatalog({
+              title: b.title,
+              detail: b.detail,
+              priceCents: Math.round(b.priceUsd * 100),
+              editionSize: b.editionSize,
+            }));
         }
       },
     },

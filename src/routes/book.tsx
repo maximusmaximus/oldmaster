@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BOOK_PRICE_CENTS, EDITION_SIZE, REASON_TEXT, TEXT_REFUND, type UnavailableReason, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
+import { BOOK_PRICE_CENTS, DEFAULT_PRODUCT_DETAIL, EDITION_SIZE, REASON_TEXT, TEXT_REFUND, type UnavailableReason, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
 import { ENABLED_COUNTRIES } from "@/lib/store/regions";
 
 export const Route = createFileRoute("/book")({
@@ -35,6 +35,7 @@ const price = (c: number) => `$${(c / 100).toFixed(2)}`;
 
 function BookPage() {
   const [salesOpen, setSalesOpen] = useState<boolean | null>(null);
+  const [product, setProduct] = useState({ title: "Emoji Old Masters", priceCents: BOOK_PRICE_CENTS, detail: DEFAULT_PRODUCT_DETAIL, editionSize: EDITION_SIZE });
   const [avail, setAvail] = useState<Availability | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address1: "", address2: "", city: "", region: "", postal: "", country: "US" });
   const [quote, setQuote] = useState<{ quoteId: string; options: Option[] } | null>(null);
@@ -47,6 +48,7 @@ function BookPage() {
       .then((r) => r.json())
       .then((d) => {
         setSalesOpen(Boolean(d.salesOpen));
+        if (d.product?.priceCents) setProduct(d.product);
         if (typeof d.editionRemaining === "number") setAvail(d);
       })
       .catch(() => setSalesOpen(false));
@@ -105,10 +107,10 @@ function BookPage() {
       <div className="mt-8 grid gap-8 sm:grid-cols-2">
         <img src="/book/preview.jpg" alt="Emoji Old Masters book" width={870} height={864} className="w-full rounded-lg bg-surface-2 object-contain" />
         <div className="space-y-3 text-muted">
-          <p className="text-3xl font-bold text-fg">{price(BOOK_PRICE_CENTS)}</p>
-          <p className="text-sm">Limited edition of {EDITION_SIZE} copies, at most 5 sold per day.</p>
+          <p className="text-3xl font-bold text-fg">{price(product.priceCents)}</p>
+          <p className="text-sm">Limited edition of {product.editionSize} copies, at most 5 sold per day.</p>
           <AvailabilityLine a={avail} />
-          <p>Hardcover, 440 pages, 11.75 × 11.75 in, gloss paper. Printed to order and shipped to you.</p>
+          <p>{product.detail}</p>
           <p>Shipping is charged at cost for your address. Tax is added at checkout where it applies.</p>
           <p className="text-sm">{TEXT_SHIPPING_DUTIES}</p>
           <p className="text-sm">Ships to the US and Canada (no APO/FPO). UK and EU shipping is not available from our printer yet. <Link to="/terms" className="underline">Terms of Sale</Link></p>

@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BOOK_PRICE_CENTS,
   CANCEL_CUTOFF_LABEL,
   CONTACT_EMAIL,
   DEFAULT_MAX_ORDERS_PER_DAY,
+  DEFAULT_PRODUCT_DETAIL,
   EDITION_SIZE,
   QUOTE_TTL_MS,
   REPRINT_WINDOW_DAYS,
@@ -23,7 +24,6 @@ export const Route = createFileRoute("/terms")({
   component: Terms,
 });
 
-const PRICE = `$${(BOOK_PRICE_CENTS / 100).toFixed(2)} USD`;
 const QUOTE_MIN = Math.round(QUOTE_TTL_MS / 60000);
 const mail = <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 
@@ -37,6 +37,19 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 }
 
 function Terms() {
+  const [priceLabel, setPriceLabel] = useState(`$${(BOOK_PRICE_CENTS / 100).toFixed(2)} USD`);
+  const [edition, setEdition] = useState(EDITION_SIZE);
+  const [detail, setDetail] = useState(DEFAULT_PRODUCT_DETAIL);
+  useEffect(() => {
+    fetch("/api/store/status")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.product?.priceCents) setPriceLabel(`$${(d.product.priceCents / 100).toFixed(2)} USD`);
+        if (d.product?.editionSize) setEdition(d.product.editionSize);
+        if (d.product?.detail) setDetail(d.product.detail);
+      })
+      .catch(() => undefined);
+  }, []);
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 py-12 leading-relaxed text-muted sm:px-6">
       <header className="space-y-2">
@@ -56,16 +69,16 @@ function Terms() {
 
       <Section n={2} title="The product">
         <p>
-          {STORE_NAME} is a hardcover art book, 440 pages, 11.75 × 11.75 inches, printed in full color on gloss paper.
+          {STORE_NAME} is a hardcover art book. {detail}
           Each copy is printed on demand after you order, by a third-party print partner, and shipped directly from them to you.
-          It is a limited edition of {EDITION_SIZE} copies; once they are sold, it won't be reprinted for sale here.
+          It is a limited edition of {edition} copies; once they are sold, it won't be reprinted for sale here.
           Colors, trim and binding can vary slightly from copy to copy and from what you see on screen; that is not a defect.
         </p>
       </Section>
 
       <Section n={3} title="Price, shipping and tax">
         <ul className="list-disc space-y-1 pl-5">
-          <li>The book costs {PRICE}.</li>
+          <li>The book costs {priceLabel}.</li>
           <li>
             Shipping is charged at our printer's cost for your address and the speed you choose (Standard, Expedited or Rush;
             not every speed is offered to every address). We show the exact shipping price before you pay. A shipping quote is valid for {QUOTE_MIN} minutes.

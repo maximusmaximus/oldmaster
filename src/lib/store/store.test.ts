@@ -159,6 +159,7 @@ describe("GET-before-retry", () => {
 async function freshDb() {
   const pg = new PGlite();
   await pg.exec(readFileSync(new URL("../../../migrations/0007_store.sql", import.meta.url), "utf8"));
+  await pg.exec(readFileSync(new URL("../../../migrations/0009_product.sql", import.meta.url), "utf8"));
   return { pg, sql: { query: async <T>(t: string, p: unknown[] = []) => (await pg.query<T>(t, p)).rows } };
 }
 
