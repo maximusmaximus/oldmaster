@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BOOK_PRICE_CENTS, EDITION_SIZE, TEXT_DAILY_SOLD_OUT, TEXT_REFUND, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
+import { BOOK_PRICE_CENTS, EDITION_SIZE, REASON_TEXT, TEXT_REFUND, type UnavailableReason, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
 import { ENABLED_COUNTRIES } from "@/lib/store/regions";
 
 export const Route = createFileRoute("/book")({
@@ -15,15 +15,15 @@ export const Route = createFileRoute("/book")({
   component: BookPage,
 });
 
-type Availability = { editionSize: number; editionRemaining: number; soldOut: boolean; dailyLimit: number; dailyRemaining: number; dailySoldOut: boolean };
+type Availability = { editionSize: number; editionRemaining: number; soldOut: boolean; dailyLimit: number; dailyRemaining: number; dailySoldOut: boolean; dailyCapReached: boolean; unavailableReason: UnavailableReason | null };
 
 export function AvailabilityLine({ a }: { a: Availability | null }) {
   if (!a) return null;
-  if (a.soldOut) return <p className="font-semibold text-fg">Sold out: all {a.editionSize} copies are gone.</p>;
+  if (a.unavailableReason === "edition_sold_out") return <p className="font-semibold text-fg">{REASON_TEXT.edition_sold_out}</p>;
   return (
     <div className="space-y-0.5">
       <p className="font-semibold text-fg">{a.editionRemaining} of {a.editionSize} copies left</p>
-      <p className="text-sm">{a.dailySoldOut ? TEXT_DAILY_SOLD_OUT : `${a.dailyRemaining} of ${a.dailyLimit} left today (resets at midnight PT)`}</p>
+      <p className="text-sm">{a.unavailableReason ? REASON_TEXT[a.unavailableReason] : `${a.dailyRemaining} of ${a.dailyLimit} left today (resets at midnight PT)`}</p>
     </div>
   );
 }
@@ -85,8 +85,7 @@ function BookPage() {
       if (!r.ok) {
         const msg: Record<string, string> = {
           quote_expired: "That shipping quote expired. Please get a new one.",
-          sold_out_today: TEXT_DAILY_SOLD_OUT,
-          sold_out: "Sold out: all copies of the edition are gone.",
+          ...REASON_TEXT,
           sales_closed: "Sales are closed right now.",
         };
         throw new Error(msg[d.error] ?? "Checkout is unavailable right now.");
@@ -115,10 +114,10 @@ function BookPage() {
         </div>
       </div>
 
-      {avail?.soldOut ? (
+      {avail?.unavailableReason === "edition_sold_out" ? (
         <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">Sold out.</p>
-      ) : avail?.dailySoldOut && salesOpen ? (
-        <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">{TEXT_DAILY_SOLD_OUT}</p>
+      ) : avail?.unavailableReason && salesOpen ? (
+        <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">{REASON_TEXT[avail.unavailableReason]}</p>
       ) : salesOpen === false ? (
         <p className="mt-10 rounded-lg bg-surface p-6 text-center text-lg font-semibold text-fg">Sales open soon.</p>
       ) : salesOpen === null ? null : (
