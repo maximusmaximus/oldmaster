@@ -21,6 +21,7 @@ export const Route = createFileRoute("/api/store/order/$token")({
           canCancel: customerCanCancel(o.state, deadline, new Date()),
           tracking: o.tracking_json ? JSON.parse(o.tracking_json) : [],
           canRequestReprint: o.state === "SHIPPED",
+          rpiQueued: o.rpi_status === "QUEUED",
           availability: await store.availability(),
         });
       },

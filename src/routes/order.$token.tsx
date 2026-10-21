@@ -16,6 +16,7 @@ type OrderView = {
   canCancel: boolean;
   tracking: Array<{ number: string | null; url: string | null }>;
   canRequestReprint: boolean;
+  rpiQueued?: boolean;
   availability?: { editionSize: number; editionRemaining: number };
 };
 
@@ -67,7 +68,7 @@ function OrderPage() {
       <p className="text-sm font-semibold tracking-wide text-muted uppercase">Your order</p>
       <h1 className="mt-2 font-sans text-3xl font-bold tracking-tight text-headline">Emoji Old Masters</h1>
       <p className="mt-2 text-sm text-muted">Bookmark this page: it's where you'll see shipping status and tracking.</p>
-      <p className="mt-6 text-lg text-fg">{STATE_TEXT[order.state] ?? order.state}</p>
+      <p className="mt-6 text-lg text-fg">{order.rpiQueued ? "Paid. Waiting in the printer's queue; it will start soon." : (STATE_TEXT[order.state] ?? order.state)}</p>
       {order.availability ? (
         <p className="mt-2 text-sm text-muted">
           Limited edition: {order.availability.editionRemaining} of {order.availability.editionSize} copies left.

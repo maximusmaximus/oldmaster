@@ -31,6 +31,8 @@ import {
   RETRY_BACKOFF_MIN,
   shippingOverageTooHigh,
   subtotalIsExpected,
+  exposureAlert,
+  rpiTotalTooHigh,
   type SiteState,
 } from "./rules.ts";
 import { createOrderBody, createWithGetBeforeRetry, type Address, type RpiClient, type RpiFullOrder, type ShippingOption } from "./rpi.ts";
@@ -161,7 +163,7 @@ export function createStore(deps: StoreDeps) {
     return { day: ptDayStartUtc(t).toISOString(), res: new Date(t.getTime() - RESERVATION_MS).toISOString(), resetsAt: nextPtMidnightUtc(t).toISOString() };
   }
 
-  async function capStatus(nextShippingUsd: number, excludeOrderId: string | null = null) {
+  async function capStatus(_nextShippingUsd: number, excludeOrderId: string | null = null) {
     const w = windows();
     const where = TODAY_SQL.replaceAll("$DAY", "$1").replaceAll("$RES", "$2");
     const rows = await sql.query<{ n: number; ship: number | null }>(
@@ -173,7 +175,7 @@ export function createStore(deps: StoreDeps) {
     const exposure = Math.round((n * EXPECTED_PRINT_COST_USD + Number(rows[0]?.ship ?? 0) / 100) * 1.1 * 100) / 100;
     const maxOrders = Number(await getSetting("MAX_RPI_ORDERS_PER_DAY")) || DEFAULT_MAX_ORDERS_PER_DAY;
     const maxExposure = Number(await getSetting("MAX_RPI_EXPOSURE_USD_PER_DAY")) || DEFAULT_MAX_EXPOSURE_USD_PER_DAY;
-    return { ordersToday: n, exposureTodayUsd: exposure, maxOrders, maxExposure, resetsAt: w.resetsAt, result: capCheck({ ordersToday: n, exposureTodayUsd: exposure, nextShippingUsd, maxOrders, maxExposureUsd: maxExposure }) };
+    return { ordersToday: n, exposureTodayUsd: exposure, maxOrders, maxExposure, resetsAt: w.resetsAt, result: capCheck({ ordersToday: n, maxOrders }) };
   }
 
   async function copiesTaken(excludeOrderId: string | null = null): Promise<number> {
@@ -192,19 +194,8 @@ export function createStore(deps: StoreDeps) {
     const caps = await capStatus(0);
     const editionRemaining = Math.max(0, EDITION_SIZE - taken);
     const countLeft = Math.max(0, caps.maxOrders - caps.ordersToday);
-    // Dollar cap: would even a minimal next order (no shipping) exceed it?
-    const amountCapReached = !capCheck({
-      ordersToday: 0,
-      exposureTodayUsd: caps.exposureTodayUsd,
-      nextShippingUsd: 0,
-      maxOrders: Number.MAX_SAFE_INTEGER,
-      maxExposureUsd: caps.maxExposure,
-    }).ok;
     const reason: UnavailableReason | null =
-      editionRemaining === 0 ? "edition_sold_out"
-      : countLeft === 0 ? "daily_count_reached"
-      : amountCapReached ? "daily_amount_cap"
-      : null;
+      editionRemaining === 0 ? "edition_sold_out" : countLeft === 0 ? "daily_count_reached" : null;
     return {
       editionSize: EDITION_SIZE,
       editionRemaining,
@@ -213,7 +204,7 @@ export function createStore(deps: StoreDeps) {
       // Never advertise copies "left today" while orders can't actually be placed.
       dailyRemaining: reason ? 0 : Math.min(countLeft, editionRemaining),
       dailySoldOut: countLeft === 0,
-      dailyCapReached: countLeft === 0 || amountCapReached,
+      dailyCapReached: countLeft === 0,
       unavailableReason: reason,
       dailyResetsAt: caps.resetsAt,
     };
@@ -250,7 +241,7 @@ export function createStore(deps: StoreDeps) {
     const option = (JSON.parse(q.options_json) as ShippingOption[]).find((o) => o.tier === tier);
     if (!option) return { ok: false, status: 422, error: "tier_unavailable" };
     const caps = await capStatus(option.priceUsd);
-    if (!caps.result.ok) return { ok: false, status: 409, error: caps.result.reason === "count" ? "daily_count_reached" : "daily_amount_cap" };
+    if (!caps.result.ok) return { ok: false, status: 409, error: "daily_count_reached" };
     const address = JSON.parse(q.address_json) as Address;
     const orderToken = token();
     // Atomic reservation: one statement inserts the order only while both the
@@ -378,6 +369,12 @@ export function createStore(deps: StoreDeps) {
       await transition(o, "NEEDS_ATTENTION", actor, "item total above safety stop");
       return;
     }
+    const total = data.pricing?.orderTotal;
+    if (rpiTotalTooHigh(total, o.amount_shipping_cents) && o.state !== "NEEDS_ATTENTION") {
+      await alert("critical", `RPI total $${total} for ${o.customer_order_id} is above $145 + paid shipping + 15%; held. Cancel+Refund before RPI's 02:00 UTC charge or within the 2-hour holding bin if needed.`, o.id);
+      await transition(o, "NEEDS_ATTENTION", actor, "rpi total above per-order limit");
+      return;
+    }
     const ship = data.pricing?.shippingTotal ?? data.selectedShipping?.price;
     if (o.amount_shipping_cents != null && shippingOverageTooHigh(ship, o.amount_shipping_cents) && o.state !== "NEEDS_ATTENTION") {
       await alert("warn", `RPI shipping $${ship} exceeds paid shipping by more than $2`, o.id);
@@ -395,7 +392,7 @@ export function createStore(deps: StoreDeps) {
       extra.tracking_json = JSON.stringify(tracking);
     }
     if (to === "NEEDS_ATTENTION" || to === "PREFLIGHT_REJECTED" || to === "RPI_REJECTED") {
-      await alert("warn", `RPI status ${status} for ${o.customer_order_id}`, o.id);
+      await alert(status === "REJECTED" ? "critical" : "warn", status === "REJECTED" ? `RPI rejected ${o.customer_order_id}: its order-limit queue was full. Not resubmitted; decide in admin.` : `RPI status ${status} for ${o.customer_order_id}`, o.id);
     }
     await transition(o, to, actor, `rpi ${status}`, extra);
   }
@@ -462,6 +459,10 @@ export function createStore(deps: StoreDeps) {
       return { handled: "held_shipping" };
     }
     const caps = await capStatus((shipCents ?? 0) / 100, o.id); // exclude this order itself
+    const todayAll = await capStatus(0);
+    if (exposureAlert(todayAll.exposureTodayUsd, todayAll.maxExposure)) {
+      await alert("info", `Today's estimated RPI spend is above the alert threshold ($${todayAll.maxExposure})`);
+    }
     if (!(await salesOpen()) || !caps.result.ok || risk === "elevated" || risk === "highest") {
       await transition(o, "HELD", "stripe", !caps.result.ok ? `cap ${caps.result.ok ? "" : caps.result.reason}` : risk ? `risk ${risk}` : "sales off");
       await alert("info", "Paid order held for review", o.id);
@@ -479,8 +480,11 @@ export function createStore(deps: StoreDeps) {
   async function handleRpiWebhook(rawBody: string, orderToken: string | null) {
     const hash = createHash("sha256").update(rawBody).digest("hex");
     let cid: string | null = null;
+    let source = "";
     try {
-      cid = (JSON.parse(rawBody) as { data?: RpiFullOrder }).data?.order?.customerOrderId ?? null;
+      const parsed = JSON.parse(rawBody) as { data?: RpiFullOrder; source?: string };
+      cid = parsed.data?.order?.customerOrderId ?? null;
+      source = String(parsed.source ?? "");
     } catch {
       cid = null;
     }
@@ -491,7 +495,19 @@ export function createStore(deps: StoreDeps) {
     if (ins.length === 0) return { handled: "duplicate" };
     let o = orderToken ? await getOrder(orderToken) : null;
     if (!o && cid) o = (await sql.query<OrderRow>("select * from store_orders where customer_order_id = $1", [cid]))[0] ?? null;
-    if (!o || !o.customer_order_id) return { handled: "unknown_order" };
+    // Account-level payment events may not name one of our orders.
+    if (source === "PaymentFailure") await alert("critical", "RPI card payment failed; RPI retries the next day. Check the card on the RPI dashboard.", o?.id ?? null);
+    if (source === "PaymentSuccessful") await audit(o?.id ?? null, null, null, "rpi", "PaymentSuccessful");
+    if (!o || !o.customer_order_id) return { handled: source ? `account:${source}` : "unknown_order" };
+    if (source === "OrderOverLimitQueued") {
+      await audit(o.id, o.state, o.state, "rpi", "OrderOverLimitQueued: waiting in RPI's limit queue");
+      await alert("info", `${o.customer_order_id} is waiting in RPI's order-limit queue`, o.id);
+    }
+    if (source === "OrderExitedLimitQueue") await audit(o.id, o.state, o.state, "rpi", "OrderExitedLimitQueue");
+    if (source === "OrderExceedsLimitQueue") {
+      await alert("critical", `RPI rejected ${o.customer_order_id}: limit queue full. Not resubmitted.`, o.id);
+      if (o.state !== "NEEDS_ATTENTION") await transition(o, "NEEDS_ATTENTION", "rpi", "OrderExceedsLimitQueue");
+    }
     await syncFromRpi(o, "rpi"); // webhook is a hint; GET is the truth
     return { handled: o.state };
   }

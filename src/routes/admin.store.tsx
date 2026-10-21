@@ -72,7 +72,7 @@ function AdminStore() {
         <p className="mt-3 text-muted">Today (since midnight PT, incl. open checkouts): {data.ordersToday} copies, ${data.exposureTodayUsd.toFixed(2)} exposure. {data.availability ? `Edition: ${data.availability.editionRemaining} of ${data.availability.editionSize} left. ` : ""}Next RPI id: emoji-old-masters-440pp-gls-{data.nextOrderSeq.padStart(3, "0")}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label>Max orders/day <Input className="w-24" value={caps.maxOrders} onChange={(e) => setCaps({ ...caps, maxOrders: e.target.value })} /></label>
-          <label>Max $/day <Input className="w-28" value={caps.maxExposureUsd} onChange={(e) => setCaps({ ...caps, maxExposureUsd: e.target.value })} /></label>
+          <label>Alert above $/day (not a cap) <Input className="w-28" value={caps.maxExposureUsd} onChange={(e) => setCaps({ ...caps, maxExposureUsd: e.target.value })} /></label>
           <Button variant="outline" onClick={() => void act({ action: "setCaps", maxOrders: Number(caps.maxOrders), maxExposureUsd: Number(caps.maxExposureUsd) })}>Save caps</Button>
         </div>
       </section>

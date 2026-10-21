@@ -9,7 +9,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { cancelDeadlineFor, isAfterTodayCutoff, nextPostChargeRunUtc } from "./cutoff.ts";
 import { formatOrderId, assertUsableOrderId } from "./order-id.ts";
 import { checkRegion } from "./regions.ts";
-import { capCheck, mapRpiStatus, printCostTooHigh, shippingOverageTooHigh, quoteIsFresh } from "./rules.ts";
+import { capCheck, exposureAlert, mapRpiStatus, printCostTooHigh, rpiTotalTooHigh, shippingOverageTooHigh, quoteIsFresh } from "./rules.ts";
 import { signCron, signRpiPayload, signStripePayload, verifyCron, verifyRpiSignature, verifyStripeSignature } from "./signatures.ts";
 import { createRpiClient, createOrderBody, createWithGetBeforeRetry, type Address } from "./rpi.ts";
 import { createStripeClient, formEncode } from "./stripe.ts";
@@ -53,11 +53,18 @@ describe("cutoff", () => {
 });
 
 describe("rules", () => {
-  it("caps at 5 orders / $550", () => {
-    const base = { maxOrders: 5, maxExposureUsd: 550, nextShippingUsd: 6.99 };
-    assert.deepEqual(capCheck({ ...base, ordersToday: 5, exposureTodayUsd: 0 }), { ok: false, reason: "count" });
-    assert.deepEqual(capCheck({ ...base, ordersToday: 4, exposureTodayUsd: 450 }), { ok: false, reason: "exposure" });
-    assert.deepEqual(capCheck({ ...base, ordersToday: 4, exposureTodayUsd: 400 }), { ok: true });
+  it("buyer cap is copies only (5/day); $550 is just an admin alert threshold", () => {
+    assert.deepEqual(capCheck({ ordersToday: 5, maxOrders: 5 }), { ok: false, reason: "count" });
+    assert.deepEqual(capCheck({ ordersToday: 4, maxOrders: 5 }), { ok: true });
+    assert.equal(exposureAlert(551, 550), true);
+    assert.equal(exposureAlert(549, 550), false);
+  });
+  it("per-order RPI total limit = ($145 + paid shipping) x 1.15", () => {
+    assert.equal(rpiTotalTooHigh(174.79, 699), false); // limit 174.79
+    assert.equal(rpiTotalTooHigh(174.8, 699), true);
+    assert.equal(rpiTotalTooHigh(null, 699), false);
+    assert.equal(mapRpiStatus("QUEUED"), "RPI_CREATED");
+    assert.equal(mapRpiStatus("REJECTED"), "NEEDS_ATTENTION");
   });
   it("safety stop and overage", () => {
     assert.equal(printCostTooHigh(87.3), false);
@@ -321,55 +328,80 @@ describe("store flow (mocked Stripe + RPI, in-memory DB)", () => {
     assert.equal((await s.store.availability()).editionRemaining, 1);
   });
 
-  it("reason codes: edition_sold_out, daily_count_reached, daily_amount_cap", async () => {
+  it("reason codes: daily_count_reached then edition_sold_out; a high dollar total never blocks buyers", async () => {
     const s = setup();
     await s.store.setSetting("ORDERS_ENABLED", "true");
-    const fresh = await s.store.availability();
-    assert.equal(fresh.unavailableReason, null);
-    assert.equal(fresh.dailyRemaining, 5);
     const q = await s.store.quote(ADDR);
     assert.ok(q.ok);
-
-    // Dollar cap only: 2 orders today (count is fine) but the cap is lowered below their exposure.
+    // Dollar threshold far below today's spend: buyers are NOT blocked, no "paused" reason exists.
     await db.sql.query("insert into store_orders (id, state, paid_at, amount_shipping_cents) select 'a'||g, 'RPI_CREATED', $1, 3599 from generate_series(1,2) g", [morning().toISOString()]);
-    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "250");
-    const amt = await s.store.availability();
-    assert.equal(amt.unavailableReason, "daily_amount_cap");
-    assert.equal(amt.dailyCapReached, true);
-    assert.equal(amt.dailySoldOut, false);
-    assert.equal(amt.dailyRemaining, 0); // never claims copies left today
-    const qa = await s.store.quote(ADDR);
-    assert.equal(qa.ok, false);
-    assert.equal(qa.ok ? "" : qa.reason, "daily_amount_cap");
-    assert.equal(qa.ok ? "" : qa.error, "Today's orders are paused, please check back after midnight PT.");
-    assert.doesNotMatch(qa.ok ? "" : qa.error, /sold|\$/i);
-    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "daily_amount_cap" });
+    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "10");
+    const a = await s.store.availability();
+    assert.equal(a.unavailableReason, null);
+    assert.equal(a.dailyRemaining, 3);
+    assert.equal((await s.store.checkout(q.quoteId, "rush")).ok, true);
 
-    // Count reached wins over the dollar cap.
-    await db.sql.query("insert into store_orders (id, state, paid_at, amount_shipping_cents) select 'c'||g, 'RPI_CREATED', $1, 699 from generate_series(1,3) g", [morning().toISOString()]);
+    await db.sql.query("insert into store_orders (id, state, paid_at, amount_shipping_cents) select 'c'||g, 'RPI_CREATED', $1, 699 from generate_series(1,2) g", [morning().toISOString()]);
     const cnt = await s.store.availability();
     assert.equal(cnt.unavailableReason, "daily_count_reached");
     const qc = await s.store.quote(ADDR);
     assert.equal(qc.ok ? "" : qc.reason, "daily_count_reached");
     assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "daily_count_reached" });
 
-    // Edition sold out wins over everything.
     await db.sql.query("insert into store_orders (id, state, paid_at) select 'e'||g, 'SHIPPED', '2026-10-01T00:00:00Z' from generate_series(1,495) g");
-    const ed = await s.store.availability();
-    assert.equal(ed.unavailableReason, "edition_sold_out");
-    const qe = await s.store.quote(ADDR);
-    assert.equal(qe.ok ? "" : qe.reason, "edition_sold_out");
+    assert.equal((await s.store.availability()).unavailableReason, "edition_sold_out");
   });
 
-  it("dollar cap hit at checkout time (higher-priced tier) returns daily_amount_cap, not sold out", async () => {
+  it("paid order over the $ alert threshold still goes to RPI and raises an admin alert", async () => {
     const s = setup();
     await s.store.setSetting("ORDERS_ENABLED", "true");
-    const q = await s.store.quote(ADDR);
-    assert.ok(q.ok);
-    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "130"); // standard fits (~$103.72), rush doesn't (~$135.62)
-    assert.equal((await s.store.availability()).unavailableReason, null);
-    assert.deepEqual(await s.store.checkout(q.quoteId, "rush"), { ok: false, status: 409, error: "daily_amount_cap" });
-    assert.equal((await s.store.checkout(q.quoteId, "standard")).ok, true);
+    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "50");
+    const id = await buy(s);
+    await s.store.handleStripeEvent({ id: "evt_ex", type: "checkout.session.completed", data: { object: { id: "cs_test_1" } } });
+    assert.equal((await s.store.getOrder(id))?.state, "RPI_CREATED");
+    const al = await db.sql.query<{ message: string }>("select message from store_alerts");
+    assert.ok(al.some((x) => /alert threshold/.test(x.message)));
+  });
+
+  it("RPI total above $145 + shipping + 15% alerts and holds (NEEDS_ATTENTION), no cancel", async () => {
+    const s = setup({ rpi: { "GET /orders/:id": () => ({ status: 200, body: { order: { status: "VALID_AWAITING_PAYMENT" }, pricing: { itemsTotal: 87.3, shippingTotal: 6.99, orderTotal: 180 } } }) } });
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const id = await buy(s);
+    await s.store.handleStripeEvent({ id: "evt_tot", type: "checkout.session.completed", data: { object: { id: "cs_test_1" } } });
+    assert.equal((await s.store.getOrder(id))?.state, "NEEDS_ATTENTION");
+    assert.equal(s.rpi.calls.filter((c) => c.method === "DELETE").length, 0);
+    const al = await db.sql.query<{ level: string; message: string }>("select level, message from store_alerts");
+    assert.ok(al.some((x) => x.level === "critical" && /15%/.test(x.message)));
+  });
+
+  it("RPI QUEUED shows waiting; REJECTED alerts without resubmitting; limit-queue and payment webhooks", async () => {
+    let status = "QUEUED";
+    const s = setup({ rpi: { "GET /orders/:id": () => ({ status: 200, body: { order: { status }, pricing: { itemsTotal: 87.3, shippingTotal: 6.99 } } }) } });
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const id = await buy(s);
+    await s.store.handleStripeEvent({ id: "evt_q", type: "checkout.session.completed", data: { object: { id: "cs_test_1" } } });
+    let o = await s.store.getOrder(id);
+    assert.equal(o?.state, "RPI_CREATED");
+    assert.equal(o?.rpi_status, "QUEUED");
+    const cid = o!.customer_order_id!;
+    const body = (src: string) => JSON.stringify({ source: src, data: { order: { customerOrderId: cid } }, time: src });
+    await s.store.handleRpiWebhook(body("OrderOverLimitQueued"), id);
+    await s.store.handleRpiWebhook(body("OrderExitedLimitQueue"), id);
+    await s.store.handleRpiWebhook(JSON.stringify({ source: "PaymentFailure", time: "x" }), null);
+    await s.store.handleRpiWebhook(JSON.stringify({ source: "PaymentSuccessful", time: "y" }), null);
+    status = "REJECTED";
+    await s.store.handleRpiWebhook(body("OrderExceedsLimitQueue"), id);
+    o = await s.store.getOrder(id);
+    assert.equal(o?.state, "NEEDS_ATTENTION");
+    await db.sql.query("update store_orders set rpi_next_retry_at = null");
+    await s.store.reconcile();
+    assert.equal(s.rpi.calls.filter((c) => c.url.endsWith("/orders/create")).length, 1); // never resubmitted
+    const al = await db.sql.query<{ message: string }>("select message from store_alerts");
+    assert.ok(al.some((x) => /limit queue/.test(x.message)));
+    assert.ok(al.some((x) => /payment failed/i.test(x.message)));
+    const au = await db.sql.query<{ note: string }>("select note from store_audit");
+    assert.ok(au.some((x) => x.note === "PaymentSuccessful"));
+    assert.ok(au.some((x) => /OrderExitedLimitQueue/.test(x.note)));
   });
 
   it("paid after the edition sold out: held, refunded, no RPI order", async () => {

@@ -1,0 +1,220 @@
+import { w as require_jsx_runtime, x as Link } from "../_libs/@tanstack/react-router+[...].mjs";
+import { c as CANCEL_CUTOFF_LABEL, f as SELLER_NAME, l as CONTACT_EMAIL, m as TERMS_EFFECTIVE_DATE, p as STORE_NAME, s as BOOK_PRICE_CENTS, u as QUOTE_TTL_MS } from "./router-ByA-bRxH.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/terms-C5s1U-C8.js
+var import_jsx_runtime = require_jsx_runtime();
+var PRICE = `$${(BOOK_PRICE_CENTS / 100).toFixed(2)} USD`;
+var QUOTE_MIN = Math.round(QUOTE_TTL_MS / 6e4);
+var mail = /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
+	className: "underline",
+	href: `mailto:${CONTACT_EMAIL}`,
+	children: CONTACT_EMAIL
+});
+function Section({ n, title, children }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+		className: "space-y-3",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h2", {
+			className: "text-lg font-semibold text-fg",
+			children: [
+				n,
+				". ",
+				title
+			]
+		}), children]
+	});
+}
+function Terms() {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+		className: "mx-auto max-w-2xl space-y-8 px-4 py-12 leading-relaxed text-muted sm:px-6",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
+				className: "space-y-2",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+						className: "font-sans text-3xl font-bold tracking-tight text-headline",
+						children: "Terms of Sale"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "text-sm",
+						children: ["Effective ", TERMS_EFFECTIVE_DATE]
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+						"These terms apply when you buy the book from this website. By placing an order you agree to them. If you have a question, email ",
+						mail,
+						" before you buy."
+					] })
+				]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 1,
+				title: "Who you're buying from",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					"You are buying from ",
+					SELLER_NAME,
+					", who publishes ",
+					STORE_NAME,
+					" (\"we\", \"us\"). Contact: ",
+					mail,
+					"."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 2,
+				title: "The product",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					STORE_NAME,
+					" is a hardcover art book, 440 pages, 11.75 × 11.75 inches, printed in full color on gloss paper. Each copy is printed on demand after you order, by a third-party print partner, and shipped directly from them to you. It is a limited edition of ",
+					500,
+					" copies; once they are sold, it won't be reprinted for sale here. Colors, trim and binding can vary slightly from copy to copy and from what you see on screen; that is not a defect."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 3,
+				title: "Price, shipping and tax",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("ul", {
+					className: "list-disc space-y-1 pl-5",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+							"The book costs ",
+							PRICE,
+							"."
+						] }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+							"Shipping is charged at our printer's cost for your address and the speed you choose (Standard, Expedited or Rush; not every speed is offered to every address). We show the exact shipping price before you pay. A shipping quote is valid for ",
+							QUOTE_MIN,
+							" minutes."
+						] }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "We collect California sales tax on orders shipped to California. Tax is calculated by Stripe and shown at checkout." }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+							"We sell at most ",
+							5,
+							" copies per day; the daily count resets at midnight Pacific Time. Starting checkout holds a copy for you for 30 minutes. If a payment goes through after the edition or the day's copies are already taken, we cancel and fully refund it (or, for the daily limit, we may ship it the next day instead)."
+						] }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "All prices are in US dollars. Your bank may charge currency-conversion or foreign-transaction fees." })
+					]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Section, {
+				n: 4,
+				title: "Where we ship",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "We ship to the United States (including Puerto Rico and US territories when our printer offers shipping there) and Canada only. We can't ship to APO/FPO/DPO military addresses. We don't currently ship to the UK, the EU or other countries." }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", {
+					className: "text-fg",
+					children: "Canadian buyers:"
+				}), " your order ships from the US. You are responsible for any import duties, taxes, customs or brokerage fees charged on delivery. If you refuse to pay them and the package is returned, we can't refund the book."] })]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 5,
+				title: "Production and delivery times",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Printing usually takes a few business days, then shipping time depends on the speed you choose. Dates we show are estimates from our printer and carriers, not guarantees. We're not responsible for carrier delays, but we'll help you chase a late package." })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 6,
+				title: "Cancellations and refunds",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("ul", {
+					className: "list-disc space-y-1 pl-5",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+							"You can cancel for a ",
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", {
+								className: "text-fg",
+								children: "full refund"
+							}),
+							" until ",
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", {
+								className: "text-fg",
+								children: [CANCEL_CUTOFF_LABEL, " on the day you order"]
+							}),
+							". If you order after ",
+							CANCEL_CUTOFF_LABEL,
+							", you can cancel until ",
+							CANCEL_CUTOFF_LABEL,
+							" the next day. Cancel from your order page (linked from your receipt and shown after payment) or by emailing ",
+							mail,
+							" before the deadline."
+						] }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "After that deadline your book goes into production and can no longer be cancelled or refunded." }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Because every copy is printed for you, we don't accept returns or give refunds for a change of mind." }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "Refunds go back to the card you paid with. Your bank may take 5–10 business days to show them." }),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: "We may cancel and fully refund an order at any time before it's printed, for example if we suspect fraud, can't deliver to the address, or the printer can't produce it." })
+					]
+				})
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 7,
+				title: "Damaged or misprinted copies",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					"If your book arrives damaged or misprinted, request a replacement from your order page within",
+					" ",
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", {
+						className: "text-fg",
+						children: [14, " days of delivery"]
+					}),
+					", and email clear photos of the problem (and of the packaging, for shipping damage) to ",
+					mail,
+					". If we confirm the problem, we'll send a free replacement. We replace defective copies; we don't refund them."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 8,
+				title: "Lost packages",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					"If tracking shows no movement for an unusually long time or the package is marked delivered but you didn't receive it, email ",
+					mail,
+					". We'll open a trace with the printer and carrier. If the package is confirmed lost in transit, we'll send a replacement. A package marked delivered to the address you gave is considered delivered."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 9,
+				title: "Your address",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Please check your shipping address before paying; the book ships to exactly the address you enter. If the address is wrong or incomplete, we're not responsible for a lost or returned package, and a reship is at your cost. If you spot a mistake, email us right away; we can fix it only before the book goes into production." })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Section, {
+				n: 10,
+				title: "Payment and chargebacks",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Payments are processed by Stripe. We never see or store your full card number; Stripe handles your card data under its own security standards." }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "If something is wrong, please contact us first; we usually fix problems faster than a bank dispute can. If you file a chargeback for an order that was delivered as described, we will share the order, tracking and these terms with your bank, and we may decline future orders from you." })]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 11,
+				title: "Privacy",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					"To fulfil your order we collect your name, email, shipping address, optional phone number and order details. Payment details are collected by Stripe, not by us. We share your information only with Stripe (payment and tax) and our print partner and its carriers (printing and delivery). We don't sell it or use it for marketing. We keep order records as long as needed for fulfilment, tax and legal reasons. To ask what we hold or to have it deleted where the law allows, email ",
+					mail,
+					"."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 12,
+				title: "Artwork and copyright",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", { children: [
+					"The book's plates are based on paintings that are in the public domain. The emoji mosaic renderings, selection, arrangement, text and design of the book are © ",
+					SELLER_NAME,
+					". Buying a copy gives you the physical book; it doesn't grant rights to reproduce the book or its compilation."
+				] })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 13,
+				title: "Limitation of liability",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "To the extent the law allows, our total liability for any claim about an order is limited to the amount you paid for that order, and we're not liable for indirect or consequential losses. Nothing here limits rights you have under consumer-protection law that can't be waived." })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 14,
+				title: "Governing law",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "These terms are governed by the laws of the State of California, USA, without regard to its conflict-of-law rules." })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Section, {
+				n: 15,
+				title: "Changes to these terms",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "We may update these terms from time to time. The version shown here when you place your order applies to that order. The effective date at the top shows when they last changed." })
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "pt-4 text-sm",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+					to: "/book",
+					className: "underline",
+					children: "Back to the book"
+				})
+			})
+		]
+	});
+}
+//#endregion
+export { Terms as component };
