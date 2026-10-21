@@ -282,7 +282,7 @@ describe("store flow (mocked Stripe + RPI, in-memory DB)", () => {
     assert.ok(q.ok);
     for (let i = 0; i < 5; i++) assert.equal((await s.store.checkout(q.quoteId, "standard")).ok, true);
     assert.equal((await s.store.availability()).dailyRemaining, 0);
-    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "sold_out_today" });
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "daily_count_reached" });
     assert.equal(s.rpi.calls.filter((c) => c.url.endsWith("/orders/create")).length, 0);
   });
 
@@ -316,9 +316,60 @@ describe("store flow (mocked Stripe + RPI, in-memory DB)", () => {
     assert.equal(a.soldOut, true);
     assert.equal(a.dailyRemaining, 0);
     assert.equal((await s.store.quote(ADDR)).ok, false);
-    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "sold_out" });
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "edition_sold_out" });
     await db.sql.query("update store_orders set state = 'CANCELLED_REFUNDED' where id = 'e1'");
     assert.equal((await s.store.availability()).editionRemaining, 1);
+  });
+
+  it("reason codes: edition_sold_out, daily_count_reached, daily_amount_cap", async () => {
+    const s = setup();
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const fresh = await s.store.availability();
+    assert.equal(fresh.unavailableReason, null);
+    assert.equal(fresh.dailyRemaining, 5);
+    const q = await s.store.quote(ADDR);
+    assert.ok(q.ok);
+
+    // Dollar cap only: 2 orders today (count is fine) but the cap is lowered below their exposure.
+    await db.sql.query("insert into store_orders (id, state, paid_at, amount_shipping_cents) select 'a'||g, 'RPI_CREATED', $1, 3599 from generate_series(1,2) g", [morning().toISOString()]);
+    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "250");
+    const amt = await s.store.availability();
+    assert.equal(amt.unavailableReason, "daily_amount_cap");
+    assert.equal(amt.dailyCapReached, true);
+    assert.equal(amt.dailySoldOut, false);
+    assert.equal(amt.dailyRemaining, 0); // never claims copies left today
+    const qa = await s.store.quote(ADDR);
+    assert.equal(qa.ok, false);
+    assert.equal(qa.ok ? "" : qa.reason, "daily_amount_cap");
+    assert.equal(qa.ok ? "" : qa.error, "Today's orders are paused, please check back after midnight PT.");
+    assert.doesNotMatch(qa.ok ? "" : qa.error, /sold|\$/i);
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "daily_amount_cap" });
+
+    // Count reached wins over the dollar cap.
+    await db.sql.query("insert into store_orders (id, state, paid_at, amount_shipping_cents) select 'c'||g, 'RPI_CREATED', $1, 699 from generate_series(1,3) g", [morning().toISOString()]);
+    const cnt = await s.store.availability();
+    assert.equal(cnt.unavailableReason, "daily_count_reached");
+    const qc = await s.store.quote(ADDR);
+    assert.equal(qc.ok ? "" : qc.reason, "daily_count_reached");
+    assert.deepEqual(await s.store.checkout(q.quoteId, "standard"), { ok: false, status: 409, error: "daily_count_reached" });
+
+    // Edition sold out wins over everything.
+    await db.sql.query("insert into store_orders (id, state, paid_at) select 'e'||g, 'SHIPPED', '2026-10-01T00:00:00Z' from generate_series(1,495) g");
+    const ed = await s.store.availability();
+    assert.equal(ed.unavailableReason, "edition_sold_out");
+    const qe = await s.store.quote(ADDR);
+    assert.equal(qe.ok ? "" : qe.reason, "edition_sold_out");
+  });
+
+  it("dollar cap hit at checkout time (higher-priced tier) returns daily_amount_cap, not sold out", async () => {
+    const s = setup();
+    await s.store.setSetting("ORDERS_ENABLED", "true");
+    const q = await s.store.quote(ADDR);
+    assert.ok(q.ok);
+    await s.store.setSetting("MAX_RPI_EXPOSURE_USD_PER_DAY", "130"); // standard fits (~$103.72), rush doesn't (~$135.62)
+    assert.equal((await s.store.availability()).unavailableReason, null);
+    assert.deepEqual(await s.store.checkout(q.quoteId, "rush"), { ok: false, status: 409, error: "daily_amount_cap" });
+    assert.equal((await s.store.checkout(q.quoteId, "standard")).ok, true);
   });
 
   it("paid after the edition sold out: held, refunded, no RPI order", async () => {

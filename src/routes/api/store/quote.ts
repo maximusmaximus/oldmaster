@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/store/quote")({
         if (!parsed.success) return json({ error: "Please check the address fields." }, 400);
         const store = await getStore();
         const r = await store.quote(parsed.data);
-        if (!r.ok) return json({ error: r.error }, r.status);
+        if (!r.ok) return json({ error: r.error, ...(r.reason ? { reason: r.reason } : {}) }, r.status);
         return json({ quoteId: r.quoteId, options: r.options });
       },
     },

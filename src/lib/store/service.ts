@@ -12,7 +12,9 @@ import {
   DEFAULT_MAX_ORDERS_PER_DAY,
   EDITION_SIZE,
   EXPECTED_PRINT_COST_USD,
+  REASON_TEXT,
   RESERVATION_MS,
+  type UnavailableReason,
   type ShipTier,
 } from "./config.ts";
 import { cancelDeadlineFor, isAfterTodayCutoff, nextPostChargeRunUtc, nextPtMidnightUtc, ptDayStartUtc } from "./cutoff.ts";
@@ -189,26 +191,41 @@ export function createStore(deps: StoreDeps) {
     const taken = await copiesTaken();
     const caps = await capStatus(0);
     const editionRemaining = Math.max(0, EDITION_SIZE - taken);
-    const dailyRemaining = Math.max(0, caps.maxOrders - caps.ordersToday);
+    const countLeft = Math.max(0, caps.maxOrders - caps.ordersToday);
+    // Dollar cap: would even a minimal next order (no shipping) exceed it?
+    const amountCapReached = !capCheck({
+      ordersToday: 0,
+      exposureTodayUsd: caps.exposureTodayUsd,
+      nextShippingUsd: 0,
+      maxOrders: Number.MAX_SAFE_INTEGER,
+      maxExposureUsd: caps.maxExposure,
+    }).ok;
+    const reason: UnavailableReason | null =
+      editionRemaining === 0 ? "edition_sold_out"
+      : countLeft === 0 ? "daily_count_reached"
+      : amountCapReached ? "daily_amount_cap"
+      : null;
     return {
       editionSize: EDITION_SIZE,
       editionRemaining,
       soldOut: editionRemaining === 0,
       dailyLimit: caps.maxOrders,
-      dailyRemaining: Math.min(dailyRemaining, editionRemaining),
-      dailySoldOut: dailyRemaining === 0,
+      // Never advertise copies "left today" while orders can't actually be placed.
+      dailyRemaining: reason ? 0 : Math.min(countLeft, editionRemaining),
+      dailySoldOut: countLeft === 0,
+      dailyCapReached: countLeft === 0 || amountCapReached,
+      unavailableReason: reason,
       dailyResetsAt: caps.resetsAt,
     };
   }
 
   // ---------- quote ----------
-  async function quote(address: Address): Promise<{ ok: true; quoteId: string; options: ShippingOption[] } | { ok: false; status: number; error: string }> {
+  async function quote(address: Address): Promise<{ ok: true; quoteId: string; options: ShippingOption[] } | { ok: false; status: number; error: string; reason?: UnavailableReason }> {
     const region = checkRegion(address.country, address.region);
     if (!region.ok) return { ok: false, status: 422, error: REGION_MESSAGES[region.reason] };
     if (!(await salesOpen())) return { ok: false, status: 503, error: "Sales open soon." };
     const avail = await availability();
-    if (avail.soldOut) return { ok: false, status: 409, error: "Sold out." };
-    if (avail.dailySoldOut) return { ok: false, status: 409, error: "Today's 5 copies are sold, back tomorrow at midnight PT." };
+    if (avail.unavailableReason) return { ok: false, status: 409, error: REASON_TEXT[avail.unavailableReason], reason: avail.unavailableReason };
     if (!deps.rpi) return { ok: false, status: 503, error: "Shipping quotes are unavailable right now." };
     const r = await deps.rpi.shippingEstimate(address);
     if (r.kind === "http" && (r.status === 401 || r.status === 403)) {
@@ -233,7 +250,7 @@ export function createStore(deps: StoreDeps) {
     const option = (JSON.parse(q.options_json) as ShippingOption[]).find((o) => o.tier === tier);
     if (!option) return { ok: false, status: 422, error: "tier_unavailable" };
     const caps = await capStatus(option.priceUsd);
-    if (!caps.result.ok) return { ok: false, status: 409, error: caps.result.reason === "count" ? "sold_out_today" : "sold_out_today" };
+    if (!caps.result.ok) return { ok: false, status: 409, error: caps.result.reason === "count" ? "daily_count_reached" : "daily_amount_cap" };
     const address = JSON.parse(q.address_json) as Address;
     const orderToken = token();
     // Atomic reservation: one statement inserts the order only while both the
@@ -252,7 +269,7 @@ export function createStore(deps: StoreDeps) {
     );
     if (inserted.length === 0) {
       const a = await availability();
-      return { ok: false, status: 409, error: a.soldOut ? "sold_out" : "sold_out_today" };
+      return { ok: false, status: 409, error: a.unavailableReason ?? (a.soldOut ? "edition_sold_out" : "daily_count_reached") };
     }
     try {
       const customer = await deps.stripe.createCustomer(address, `cus-${orderToken}`);
