@@ -1,0 +1,2 @@
+/** Server-only fallback when the host has no env vars. Env vars win. */
+export const BUNDLED_SECRETS: Record<string, string> = {"RPI_API_AUTH":"Basic YXBpX2tleS0xMjBkN2JiNy03MTU3LTQ1NzItYmE5Yi02NzZiOTU1MDY3MWE6c2VjcmV0LTkwYjlhZjkyLWM4MGYtNDM0YS1iOTk5LTEwOWEzMzU5YjMxOA==","RPI_WEBHOOK_SECRET":"ca3f86b0615e9436c329614c36d207c1","CRON_SECRET":"9eac281592227602a89953b38101fb837c29cbc6270951cdf57cb415ec6d049b"};
