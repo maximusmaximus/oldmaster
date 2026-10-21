@@ -27,6 +27,7 @@ export const SHIPPING_OVERAGE_TOLERANCE_USD = 2;
 
 /** Default caps (Max, Oct 21, 2026). Editable on /admin/store. */
 export const DEFAULT_MAX_ORDERS_PER_DAY = 5;
+/** Admin alert threshold only (not a buyer-facing cap). */
 export const DEFAULT_MAX_EXPOSURE_USD_PER_DAY = 550;
 
 export const SHIP_TIERS = ["standard", "expedited", "rush"] as const;
@@ -56,11 +57,9 @@ export const RESERVATION_MS = 30 * 60 * 1000;
 export const TEXT_DAILY_SOLD_OUT = "Today's 5 copies are sold, back tomorrow at midnight PT.";
 
 /** Why the buyer can't order right now (null = can order). */
-export type UnavailableReason = "edition_sold_out" | "daily_count_reached" | "daily_amount_cap";
+export type UnavailableReason = "edition_sold_out" | "daily_count_reached";
 export const TEXT_EDITION_SOLD_OUT = "Sold out: all copies of the edition are gone.";
-export const TEXT_DAILY_PAUSED = "Today's orders are paused, please check back after midnight PT.";
 export const REASON_TEXT: Record<UnavailableReason, string> = {
   edition_sold_out: TEXT_EDITION_SOLD_OUT,
   daily_count_reached: TEXT_DAILY_SOLD_OUT,
-  daily_amount_cap: TEXT_DAILY_PAUSED,
 };
