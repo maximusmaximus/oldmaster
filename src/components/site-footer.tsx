@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { FANS_REPO_URL } from "@/lib/fan-works";
 
 export function SiteFooter() {
@@ -19,6 +20,12 @@ export function SiteFooter() {
         >
           github
         </a>
+        <Link
+          to="/terms"
+          className="inline-flex h-11 items-center text-sm font-medium text-muted transition-[color] duration-150 ease-out hover:text-fg"
+        >
+          terms of sale
+        </Link>
       </div>
     </footer>
   );
