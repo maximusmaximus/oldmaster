@@ -88,7 +88,7 @@ function BookPage() {
           <p>Hardcover, 440 pages, 11.75 × 11.75 in, gloss paper. Printed to order and shipped to you.</p>
           <p>Shipping is charged at cost for your address. Tax is added at checkout where it applies.</p>
           <p className="text-sm">{TEXT_SHIPPING_DUTIES}</p>
-          <p className="text-sm">Ships to the US and Canada (no APO/FPO). UK and EU shipping is not available from our printer yet.</p>
+          <p className="text-sm">Ships to the US and Canada (no APO/FPO). UK and EU shipping is not available from our printer yet. <Link to="/terms" className="underline">Terms of Sale</Link></p>
         </div>
       </div>
 
@@ -134,6 +134,9 @@ function BookPage() {
                 By continuing you agree to the <Link to="/terms" className="underline">Terms of Sale</Link>. The quote is valid for 30 minutes.
               </p>
               <Button className="mt-4" onClick={pay} disabled={busy || !tier}>{busy ? "Opening checkout…" : "Continue to payment"}</Button>
+              <p className="mt-2 text-xs text-muted">
+                Payment is processed by Stripe. Read the full <Link to="/terms" className="underline">Terms of Sale</Link> before paying.
+              </p>
             </div>
           ) : null}
           {error ? <p className="mt-4 text-sm text-red-400" role="alert">{error}</p> : null}

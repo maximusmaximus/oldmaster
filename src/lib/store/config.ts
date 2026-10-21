@@ -41,3 +41,10 @@ export const TEXT_SHIPPING_DUTIES =
   "Printed to order and shipped from the US. Orders outside the US may owe import duties, taxes or fees on delivery; these are paid by the buyer.";
 export const TEXT_REFUND =
   "Each copy is printed to order. You can cancel for a full refund until 4:00 PM Pacific on the day you order (orders after 4:00 PM PT: until 4:00 PM PT the next day). After that your book goes to print and can't be cancelled or refunded. Misprinted or damaged copies are replaced free.";
+
+export const SELLER_NAME = "Max Infeld";
+export const STORE_NAME = "Emoji Old Masters";
+export const CONTACT_EMAIL = "maxinfeld@gmail.com";
+export const CANCEL_CUTOFF_LABEL = "4:00 PM Pacific Time";
+export const REPRINT_WINDOW_DAYS = 14;
+export const TERMS_EFFECTIVE_DATE = "October 21, 2026";
