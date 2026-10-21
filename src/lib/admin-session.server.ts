@@ -1,9 +1,9 @@
 import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
 import {
   ADMIN_COOKIE,
-  ADMIN_PASS,
-  ADMIN_USER,
   adminToken,
+  adminUser,
+  passwordMatches,
   safeEqual,
 } from "./admin-secrets.server";
 
@@ -22,8 +22,8 @@ export async function isAdminRequest(): Promise<boolean> {
 }
 
 export function loginAdmin(username: string, password: string): boolean {
-  const userOk = safeEqual(username.trim(), ADMIN_USER);
-  const passOk = safeEqual(password, ADMIN_PASS);
+  const userOk = safeEqual(username.trim(), adminUser());
+  const passOk = passwordMatches(password);
   if (!userOk || !passOk) return false;
   setResponseHeader(
     "set-cookie",
