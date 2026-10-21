@@ -91,7 +91,7 @@ function OrderPage() {
       ) : null}
       {order.canRequestReprint ? (
         <div className="mt-8 rounded-lg bg-surface p-4">
-          <p className="text-sm text-muted">Misprinted or damaged? Describe the problem (within 14 days of delivery) and we'll arrange a free replacement.</p>
+          <p className="text-sm text-muted">Misprinted or damaged? Describe the problem (within 14 days of delivery) and email photos to maxinfeld@gmail.com; we will arrange a free replacement.</p>
           <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={4} className="mt-2 w-full rounded-md border border-border bg-surface p-2 text-sm text-fg" />
           <Button className="mt-2" disabled={desc.trim().length < 10} onClick={() => void act({ action: "reprint", description: desc }, "Thanks, we received your request.")}>
             Request a replacement
