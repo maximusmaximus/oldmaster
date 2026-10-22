@@ -3,12 +3,12 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 const SLIDES = [
-  { src: "/book/preview.jpg", alt: "Cover of the Emoji Old Masters book", preview: false },
-  { src: "/book/pages/01.jpg", alt: "Book preview, opening spread", preview: true },
-  { src: "/book/pages/02.jpg", alt: "Book preview, The Starry Night", preview: true },
-  { src: "/book/pages/03.jpg", alt: "Book preview, interior spread", preview: true },
-  { src: "/book/pages/04.jpg", alt: "Book preview, interior spread", preview: true },
-  { src: "/book/pages/05.jpg", alt: "Book preview, The Great Wave", preview: true },
+  { src: "/book/preview.jpg", alt: "Cover of the Emoji Old Masters book", label: "Cover", preview: false },
+  { src: "/book/pages/01.jpg", alt: "Book preview, Girl with a Pearl Earring", label: "Girl with a Pearl Earring", preview: true },
+  { src: "/book/pages/02.jpg", alt: "Book preview, The Starry Night", label: "The Starry Night", preview: true },
+  { src: "/book/pages/03.jpg", alt: "Book preview, The Birth of Venus", label: "The Birth of Venus", preview: true },
+  { src: "/book/pages/04.jpg", alt: "Book preview, The Scream", label: "The Scream", preview: true },
+  { src: "/book/pages/05.jpg", alt: "Book preview, The Great Wave", label: "The Great Wave", preview: true },
 ] as const;
 
 function Strip({
@@ -16,17 +16,21 @@ function Strip({
   drag,
   dragging,
   large,
+  stage,
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onClick,
 }: {
   index: number;
   drag: number;
   dragging: boolean;
   large?: boolean;
+  stage?: boolean;
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onClick?: () => void;
 }) {
   const slide = SLIDES[index] ?? SLIDES[0];
   return (
@@ -36,6 +40,7 @@ function Strip({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onClick={onClick}
     >
       <div
         className="flex touch-pan-y"
@@ -45,18 +50,23 @@ function Strip({
         }}
       >
         {SLIDES.map((item) => (
-          <img
+          <div
             key={item.src}
-            src={item.src}
-            alt={item.alt}
-            draggable={false}
-            width={864}
-            height={864}
             className={cn(
-              "w-full shrink-0 select-none object-contain",
-              large && "max-h-[88vh]",
+              "flex w-full shrink-0 items-center justify-center",
+              stage && "h-[min(68vh,720px)]",
+              large && "h-[min(88vh,900px)]",
             )}
-          />
+          >
+            <img
+              src={item.src}
+              alt={item.alt}
+              draggable={false}
+              width={864}
+              height={864}
+              className={cn("select-none object-contain", stage || large ? "max-h-full max-w-full" : "w-full")}
+            />
+          </div>
         ))}
       </div>
       {slide.preview && (
@@ -76,9 +86,9 @@ function Strip({
   );
 }
 
-type Props = { className?: string };
+type Props = { className?: string; featured?: boolean };
 
-export function BookPreview({ className }: Props) {
+export function BookPreview({ className, featured = false }: Props) {
   const [index, setIndex] = useState(0);
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -128,16 +138,75 @@ export function BookPreview({ className }: Props) {
       if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) return;
       if (dx > 48) setIndex((i) => Math.max(0, i - 1));
       else if (dx < -48) setIndex((i) => Math.min(SLIDES.length - 1, i + 1));
-      else if (!moved.current && enlargeOnTap) setOpen(true);
+    },
+    onClick: () => {
+      if (!moved.current && enlargeOnTap) setOpen(true);
     },
   });
 
   const banner = bind(true);
   const viewer = bind(false);
+  const slide = SLIDES[index] ?? SLIDES[0];
+
+  const step = (dir: -1 | 1) => setIndex((i) => Math.min(SLIDES.length - 1, Math.max(0, i + dir)));
 
   return (
     <div className={className} role="region" aria-roledescription="carousel" aria-label="Book preview">
-      <Strip index={index} drag={open ? 0 : drag} dragging={open ? false : dragging} {...banner} />
+      <div className="relative overflow-hidden rounded-lg">
+        <Strip index={index} drag={open ? 0 : drag} dragging={open ? false : dragging} stage={featured} {...banner} />
+        {featured && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={index === 0}
+              onClick={() => step(-1)}
+              className="absolute top-1/2 left-2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-2xl text-white disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={index === SLIDES.length - 1}
+              onClick={() => step(1)}
+              className="absolute top-1/2 right-2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-2xl text-white disabled:opacity-30"
+            >
+              ›
+            </button>
+          </>
+        )}
+      </div>
+      {featured && (
+        <>
+          <div className="mt-3 flex items-baseline justify-between gap-3 px-1">
+            <p className="min-w-0 truncate text-sm text-fg">
+              {slide.preview ? <span className="font-semibold tracking-wide uppercase">Preview</span> : <span className="font-semibold tracking-wide uppercase">Cover</span>}
+              {slide.preview ? <span className="text-muted"> · {slide.label}</span> : null}
+            </p>
+            <p className="shrink-0 text-xs text-muted">
+              {index + 1} / {SLIDES.length}
+            </p>
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {SLIDES.map((item, i) => (
+              <button
+                key={item.src}
+                type="button"
+                aria-label={item.alt}
+                aria-current={i === index}
+                onClick={() => setIndex(i)}
+                className={cn(
+                  "w-16 shrink-0 overflow-hidden rounded-md sm:w-20",
+                  i === index ? "outline outline-2 outline-white" : "opacity-60 hover:opacity-100",
+                )}
+              >
+                <img src={item.src} alt="" className="aspect-square w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {open &&
         createPortal(
           <div

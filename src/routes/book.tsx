@@ -102,14 +102,13 @@ function BookPage() {
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
+    <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       <p className="text-sm font-semibold tracking-wide text-muted uppercase">The book</p>
       <h1 className="mt-2 font-sans text-4xl font-bold tracking-tight text-headline">EMOJI OLD MASTERS</h1>
-      <div className="mt-8 grid gap-8 sm:grid-cols-2">
-        <div className="overflow-hidden rounded-lg">
-          <BookPreview />
-        </div>
-        <div className="space-y-3 text-muted">
+      <div className="mt-8 rounded-xl bg-surface p-2 sm:p-3">
+        <BookPreview featured />
+      </div>
+      <div className="mt-8 max-w-xl space-y-3 text-muted">
           <p className="text-3xl font-bold text-fg">{price(product.priceCents)}</p>
           <p className="text-sm">Limited edition of {product.editionSize} copies, at most 5 sold per day.</p>
           <AvailabilityLine a={avail} />
@@ -117,7 +116,6 @@ function BookPage() {
           <p>Shipping is charged at cost for your address. Tax is added at checkout where it applies.</p>
           <p className="text-sm">{TEXT_SHIPPING_DUTIES}</p>
           <p className="text-sm">Ships to the US and Canada (no APO/FPO). UK and EU shipping is not available from our printer yet. <Link to="/terms" className="underline">Terms of Sale</Link></p>
-        </div>
       </div>
 
       {avail?.unavailableReason === "edition_sold_out" ? (
