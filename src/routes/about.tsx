@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ExternalLink } from "lucide-react";
 import { AdminLogin } from "@/components/admin-login";
+import { BookPreview } from "@/components/book-preview";
 import { BuyNow } from "@/components/buy-now";
 import { plateCount } from "@/lib/catalog";
 import { FANS_REPO_URL } from "@/lib/fan-works";
@@ -22,28 +23,22 @@ function About() {
         About EMOJI OLD MASTERS
       </h1>
 
-      <Link
-        to="/book"
-        className="group mt-8 block rounded-xl bg-surface p-1.5 transition-[background-color] duration-150 ease-out hover:bg-surface-2"
-      >
-        <div className="overflow-hidden rounded-lg bg-surface-2">
-          <img
-            src="/book/preview.jpg"
-            alt="Preview of the Emoji Old Masters book"
-            width={870}
-            height={864}
-            className="mx-auto w-full object-contain outline outline-1 -outline-offset-1 outline-white/10"
-          />
+      <div className="mt-8 rounded-xl bg-surface p-1.5">
+        <div className="overflow-hidden rounded-lg">
+          <BookPreview />
         </div>
-        <div className="flex items-center justify-between gap-3 px-3 py-3">
+        <Link
+          to="/book"
+          className="flex items-center justify-between gap-3 px-3 py-3"
+        >
           <div className="min-w-0">
             <p className="font-semibold tracking-wide text-fg">Buy the book</p>
             <p className="mt-0.5 text-sm text-muted">
               11.75 × 11.75 in hardcover, 440 pages, printed to order
             </p>
           </div>
-        </div>
-      </Link>
+        </Link>
+      </div>
 
       <div className="mt-8 space-y-5 text-base leading-relaxed text-muted">
         <p>

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
+import { BookPreview } from "@/components/book-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BOOK_PRICE_CENTS, DEFAULT_PRODUCT_DETAIL, EDITION_SIZE, REASON_TEXT, TEXT_REFUND, type UnavailableReason, TEXT_SHIPPING_DUTIES, TIER_LABEL, type ShipTier } from "@/lib/store/config";
@@ -105,7 +106,9 @@ function BookPage() {
       <p className="text-sm font-semibold tracking-wide text-muted uppercase">The book</p>
       <h1 className="mt-2 font-sans text-4xl font-bold tracking-tight text-headline">EMOJI OLD MASTERS</h1>
       <div className="mt-8 grid gap-8 sm:grid-cols-2">
-        <img src="/book/preview.jpg" alt="Emoji Old Masters book" width={870} height={864} className="w-full rounded-lg bg-surface-2 object-contain" />
+        <div className="overflow-hidden rounded-lg">
+          <BookPreview />
+        </div>
         <div className="space-y-3 text-muted">
           <p className="text-3xl font-bold text-fg">{price(product.priceCents)}</p>
           <p className="text-sm">Limited edition of {product.editionSize} copies, at most 5 sold per day.</p>
